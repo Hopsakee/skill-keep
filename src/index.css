@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 210 82% 24%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 82% 24%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 82% 24%;
+
+    --primary: 210 82% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --primary-focus: 214 42% 39%;
+
+    --secondary: 210 30% 94%;
+    --secondary-foreground: 210 82% 24%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 20% 45%;
+
+    --accent: 46 90% 62%;
+    --accent-foreground: 210 82% 24%;
+
+    --info: 195 100% 64%;
+    --info-foreground: 210 82% 24%;
+
+    --warning: 32 90% 47%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 210 82% 24%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 40% 35%;
+    --sidebar-primary: 210 82% 24%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 30% 94%;
+    --sidebar-accent-foreground: 210 82% 24%;
+    --sidebar-border: 210 20% 90%;
+    --sidebar-ring: 195 100% 64%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --font-sans: 'Geist', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  .dark {
+    --background: 210 50% 8%;
+    --foreground: 0 0% 95%;
+
+    --card: 210 45% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 210 45% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 195 100% 64%;
+    --primary-foreground: 210 82% 15%;
+
+    --primary-focus: 214 42% 50%;
+
+    --secondary: 210 30% 18%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 210 25% 16%;
+    --muted-foreground: 210 15% 55%;
+
+    --accent: 46 90% 62%;
+    --accent-foreground: 210 82% 15%;
+
+    --info: 195 100% 64%;
+    --info-foreground: 210 82% 15%;
+
+    --warning: 32 90% 47%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 30% 22%;
+    --input: 210 30% 22%;
+    --ring: 195 100% 64%;
+
+    --sidebar-background: 210 45% 10%;
+    --sidebar-foreground: 210 20% 70%;
+    --sidebar-primary: 195 100% 64%;
+    --sidebar-primary-foreground: 210 82% 15%;
+    --sidebar-accent: 210 30% 18%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 210 30% 22%;
+    --sidebar-ring: 195 100% 64%;
+
+    --success: 142 76% 42%;
+    --success-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
