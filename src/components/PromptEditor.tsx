@@ -25,6 +25,7 @@ import { PromptUsage } from './PromptUsage';
 import { VersionChatExamples } from './VersionChatExamples';
 import { AllVersionNotes } from './AllVersionNotes';
 import { MarkdownPreview } from './MarkdownPreview';
+import { SkillFiles } from './SkillFiles';
 
 interface PromptEditorProps {
   prompt: Prompt | null;
@@ -40,7 +41,7 @@ export interface PromptEditorRef {
   toggleTagByIndex: (tagIndex: number) => void;
 }
 
-const tabValues = ['editor', 'usage', 'examples', 'notes'];
+const tabValues = ['editor', 'usage', 'examples', 'notes', 'files'];
 
 export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function PromptEditor(
   { prompt, isNew, onSave, onCancel },
@@ -318,6 +319,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     <TabsTrigger value="usage">Toelichting gebruik</TabsTrigger>
                     <TabsTrigger value="examples">Chat-voorbeelden versie</TabsTrigger>
                     <TabsTrigger value="notes">Notities versies</TabsTrigger>
+                    <TabsTrigger value="files">Bundled files</TabsTrigger>
                   </>
                 )}
               </TabsList>
@@ -457,6 +459,10 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                   {activeVersion && (
                     <AllVersionNotes promptId={prompt.id} activeVersionId={activeVersion.id} />
                   )}
+                </TabsContent>
+
+                <TabsContent value="files" className="flex-1 overflow-hidden p-0 mt-0">
+                  <SkillFiles promptId={prompt.id} />
                 </TabsContent>
               </>
             )}

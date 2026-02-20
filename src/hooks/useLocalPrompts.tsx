@@ -9,11 +9,12 @@ import type {
   ChatMessage, 
   ChatExample, 
   VersionAnnotation, 
-  PromptUsageData 
+  PromptUsageData,
+  SkillFile,
 } from '@/types';
 
 // Re-export types for backward compatibility
-export type { Prompt, PromptVersion, Tag, ChatMessage, ChatExample, VersionAnnotation };
+export type { Prompt, PromptVersion, Tag, ChatMessage, ChatExample, VersionAnnotation, SkillFile };
 export type PromptUsage = PromptUsageData;
 
 export function usePrompts() {
@@ -676,4 +677,99 @@ export function useVersionChatExamples(versionId: string | undefined) {
     },
     enabled: !!versionId,
   });
+}
+
+export function useSkillFiles(promptId: string | undefined) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const filesQuery = useQuery({
+    queryKey: ['skill-files', promptId],
+    queryFn: async () => {
+      if (!promptId) return [];
+
+      const db = await getDatabase();
+      const result = db.exec(
+        'SELECT id, prompt_id, filename, file_type, content, created_at, updated_at FROM skill_files WHERE prompt_id = ? ORDER BY file_type, filename',
+        [promptId]
+      );
+
+      if (!result[0]) return [];
+
+      const cols = result[0].columns;
+      return result[0].values.map((row) => {
+        const file: Record<string, unknown> = {};
+        cols.forEach((col, i) => {
+          file[col] = row[i];
+        });
+        return file as unknown as SkillFile;
+      });
+    },
+    enabled: !!promptId,
+  });
+
+  const upsertFileMutation = useMutation({
+    mutationFn: async ({
+      promptId,
+      filename,
+      file_type,
+      content,
+      existingId,
+    }: {
+      promptId: string;
+      filename: string;
+      file_type: 'script' | 'reference';
+      content: string;
+      existingId?: string;
+    }) => {
+      const db = await getDatabase();
+      const now = new Date().toISOString();
+
+      if (existingId) {
+        db.run(
+          'UPDATE skill_files SET filename = ?, file_type = ?, content = ?, updated_at = ? WHERE id = ?',
+          [filename, file_type, content, now, existingId]
+        );
+      } else {
+        const id = generateId();
+        db.run(
+          'INSERT INTO skill_files (id, prompt_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [id, promptId, filename, file_type, content, now, now]
+        );
+      }
+
+      await saveDatabase();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skill-files', promptId] });
+      toast({ title: 'File saved' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      const db = await getDatabase();
+      db.run('DELETE FROM skill_files WHERE id = ?', [fileId]);
+      await saveDatabase();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skill-files', promptId] });
+      toast({ title: 'File deleted' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+
+  return {
+    files: filesQuery.data || [],
+    isLoading: filesQuery.isLoading,
+    upsertFile: upsertFileMutation.mutateAsync,
+    deleteFile: deleteFileMutation.mutateAsync,
+    isUpserting: upsertFileMutation.isPending,
+    isDeleting: deleteFileMutation.isPending,
+  };
 }
