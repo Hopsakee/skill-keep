@@ -25,23 +25,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse GitHub URL like:
-    // https://github.com/owner/repo/tree/SHA/path/to/skill
+    // Parse GitHub URL — supports both tree and blob formats:
     // https://github.com/owner/repo/tree/branch/path/to/skill
-    const githubPattern = /github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)(\/(.+))?/;
-    const match = githubUrl.match(githubPattern);
+    // https://github.com/owner/repo/blob/SHA/path/to/file.md  (parent dir used as skill dir)
+    const treePattern = /github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)(\/(.+))?/;
+    const blobPattern = /github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)/;
 
-    if (!match) {
+    let owner: string, repo: string, ref: string, dirPath: string;
+
+    const treeMatch = githubUrl.match(treePattern);
+    const blobMatch = githubUrl.match(blobPattern);
+
+    if (treeMatch) {
+      owner = treeMatch[1];
+      repo = treeMatch[2];
+      ref = treeMatch[3];
+      dirPath = treeMatch[5] || '';
+    } else if (blobMatch) {
+      owner = blobMatch[1];
+      repo = blobMatch[2];
+      ref = blobMatch[3];
+      // For blob URLs, use the parent directory of the file as the skill dir
+      const filePath = blobMatch[4];
+      const parts = filePath.split('/');
+      parts.pop(); // remove filename
+      dirPath = parts.join('/');
+    } else {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid GitHub URL. Expected format: https://github.com/owner/repo/tree/branch/path' }),
+        JSON.stringify({ success: false, error: 'Invalid GitHub URL. Expected format: https://github.com/owner/repo/tree/branch/path or a blob file URL.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const owner = match[1];
-    const repo = match[2];
-    const ref = match[3];
-    const dirPath = match[5] || '';
 
     const token = Deno.env.get('GITHUB_TOKEN');
     const headers: Record<string, string> = {
