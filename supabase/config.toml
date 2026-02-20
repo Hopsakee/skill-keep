@@ -1,1 +1,4 @@
 project_id = "zhzexfzrjifgabsyqzzi"
+
+[functions.github-fetch-skill]
+verify_jwt = false
