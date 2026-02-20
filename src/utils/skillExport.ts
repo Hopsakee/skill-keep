@@ -22,7 +22,7 @@ async function loadSkillData(promptIds: string[]): Promise<SkillExportData[]> {
 
   for (const promptId of promptIds) {
     const promptResult = db.exec(
-      'SELECT id, title, created_at, updated_at FROM prompts WHERE id = ?',
+      'SELECT id, title, description, license, created_at, updated_at FROM prompts WHERE id = ?',
       [promptId]
     );
     if (!promptResult[0]?.values[0]) continue;
@@ -70,12 +70,17 @@ async function loadSkillData(promptIds: string[]): Promise<SkillExportData[]> {
 function buildSkillMd(prompt: Prompt): string {
   const content = prompt.active_version?.content || '';
   const now = prompt.updated_at || new Date().toISOString();
-  return `---
-name: "${prompt.title.replace(/"/g, '\\"')}"
-updated: ${now}
----
-
-${content}`;
+  const lines = [
+    `---`,
+    `name: "${prompt.title.replace(/"/g, '\\"')}"`,
+  ];
+  if (prompt.description) lines.push(`description: "${prompt.description.replace(/"/g, '\\"')}"`);
+  if (prompt.license) lines.push(`license: "${prompt.license.replace(/"/g, '\\"')}"`);
+  lines.push(`updated: ${now}`);
+  lines.push(`---`);
+  lines.push('');
+  lines.push(content);
+  return lines.join('\n');
 }
 
 export async function downloadSkillsAsZip(promptIds: string[], zipName = 'skills-export'): Promise<void> {
