@@ -111,11 +111,6 @@ Deno.serve(async (req) => {
       // Remove the prefix to get relative path
       const relativePath = item.path.slice(prefix.length);
 
-      // Limit to 2 levels deep: top-level files and one level of subdirectories
-      // (e.g. "SKILL.md" and "scripts/foo.py" are OK, "scripts/office/schemas/dml.xsd" is not)
-      const depth = relativePath.split('/').length;
-      if (depth > 2) continue;
-
       const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`;
       const blobRes = await fetch(blobUrl, { headers });
 

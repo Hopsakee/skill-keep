@@ -51,12 +51,18 @@ function parseSkillMd(raw: string): FrontmatterFields {
 }
 
 /**
- * Determine file_type for a bundled file based on extension.
+ * Determine file_type for a bundled file.
+ * Files inside a "scripts/" folder (at any depth) are always "script".
+ * Otherwise, infer by extension.
  */
 export function inferFileType(filename: string): 'script' | 'reference' {
+  const parts = filename.split('/');
+  // If the first path segment is "scripts", treat as script regardless of extension
+  if (parts.length > 1 && parts[0].toLowerCase() === 'scripts') return 'script';
   const scriptExts = ['.py', '.js', '.ts', '.sh', '.rb', '.go', '.java', '.cs', '.cpp', '.c', '.rs', '.php'];
-  const basename = filename.split('/').pop() || filename;
-  const ext = basename.substring(basename.lastIndexOf('.')).toLowerCase();
+  const basename = parts[parts.length - 1];
+  const dotIdx = basename.lastIndexOf('.');
+  const ext = dotIdx >= 0 ? basename.substring(dotIdx).toLowerCase() : '';
   return scriptExts.includes(ext) ? 'script' : 'reference';
 }
 
