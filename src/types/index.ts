@@ -49,6 +49,17 @@ export interface PromptUsageData {
   explanation: string | null;
 }
 
+// Bundled skill files (Level 3 resources)
+export interface SkillFile {
+  id: string;
+  prompt_id: string;
+  filename: string;
+  file_type: 'script' | 'reference';
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // GitHub sync types
 export interface GitHubConfig {
   owner: string;

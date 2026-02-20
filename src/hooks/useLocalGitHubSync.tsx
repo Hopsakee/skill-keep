@@ -24,6 +24,11 @@ interface PromptFullData {
   updated_at: string;
   tags: Array<{ name: string; color: string }>;
   usage_explanation: string | null;
+  skill_files: Array<{
+    filename: string;
+    file_type: 'script' | 'reference';
+    content: string;
+  }>;
   versions: Array<{
     version_number: number;
     content: string;
@@ -225,6 +230,7 @@ export function useGitHubSync() {
     const annotationsRes = db.exec('SELECT version_id, note FROM version_annotations');
     const chatExamplesRes = db.exec('SELECT version_id, messages FROM chat_examples');
     const usageRes = db.exec('SELECT prompt_id, explanation FROM prompt_usage');
+    const skillFilesRes = db.exec('SELECT prompt_id, filename, file_type, content FROM skill_files ORDER BY file_type, filename');
 
     const map = new Map<string, PromptFullData>();
     if (!promptsRes[0]) return map;
@@ -235,6 +241,7 @@ export function useGitHubSync() {
     const annotations = annotationsRes[0]?.values || [];
     const chatExamples = chatExamplesRes[0]?.values || [];
     const usageData = usageRes[0]?.values || [];
+    const skillFilesData = skillFilesRes[0]?.values || [];
 
     for (const row of promptsRes[0].values) {
       const [id, title, created_at, updated_at] = row as string[];
@@ -278,6 +285,15 @@ export function useGitHubSync() {
       // Get usage explanation
       const usage = usageData.find((u) => u[0] === id);
 
+      // Get skill files
+      const promptSkillFiles = skillFilesData
+        .filter((f) => f[0] === id)
+        .map((f) => ({
+          filename: f[1] as string,
+          file_type: f[2] as 'script' | 'reference',
+          content: f[3] as string,
+        }));
+
       const prompt: PromptFullData = {
         id,
         title,
@@ -285,6 +301,7 @@ export function useGitHubSync() {
         updated_at,
         tags: promptTags,
         usage_explanation: usage ? (usage[1] as string | null) : null,
+        skill_files: promptSkillFiles,
         versions: promptVersions,
       };
 
@@ -399,33 +416,33 @@ export function useGitHubSync() {
     );
     const commitInfo = await commitInfoRes.json();
 
-    // Create blobs for both folders
+    // Create blobs for both folders — directory per skill with SKILL.md + bundled files
     const tree = await Promise.all(
       prompts.flatMap((p) => {
         const filename = sanitizeFilename(p.title);
         const activeVersion = p.versions.find((v) => v.is_active) || p.versions[p.versions.length - 1];
         
-        // Latest version content only (raw markdown, no frontmatter)
-        const latestContent = btoa(unescape(encodeURIComponent(activeVersion?.content || '')));
+        // SKILL.md content (raw markdown body)
+        const skillMdContent = btoa(unescape(encodeURIComponent(activeVersion?.content || '')));
         
         // Full JSON data
         const jsonData = btoa(unescape(encodeURIComponent(JSON.stringify(p, null, 2))));
 
-        return [
-          // prompts-latest: just the raw content
+        const entries: Promise<{ path: string; mode: '100644'; type: 'blob'; sha: string }>[] = [
+          // skills-latest/<name>/SKILL.md
           fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs`, {
             method: 'POST',
             headers: { ...headers(config.token), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: latestContent, encoding: 'base64' }),
+            body: JSON.stringify({ content: skillMdContent, encoding: 'base64' }),
           })
             .then((res) => res.json())
             .then((blob) => ({
-              path: `${PROMPTS_LATEST_FOLDER}/${filename}.md`,
+              path: `${PROMPTS_LATEST_FOLDER}/${filename}/SKILL.md`,
               mode: '100644' as const,
               type: 'blob' as const,
               sha: blob.sha,
             })),
-          // prompts-data: full JSON
+          // skills-data/<name>.json
           fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs`, {
             method: 'POST',
             headers: { ...headers(config.token), 'Content-Type': 'application/json' },
@@ -439,6 +456,27 @@ export function useGitHubSync() {
               sha: blob.sha,
             })),
         ];
+
+        // Add bundled skill files alongside SKILL.md
+        for (const skillFile of (p.skill_files || [])) {
+          const fileContent = btoa(unescape(encodeURIComponent(skillFile.content)));
+          entries.push(
+            fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs`, {
+              method: 'POST',
+              headers: { ...headers(config.token), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: fileContent, encoding: 'base64' }),
+            })
+              .then((res) => res.json())
+              .then((blob) => ({
+                path: `${PROMPTS_LATEST_FOLDER}/${filename}/${skillFile.filename}`,
+                mode: '100644' as const,
+                type: 'blob' as const,
+                sha: blob.sha,
+              }))
+          );
+        }
+
+        return entries;
       })
     );
 
@@ -542,6 +580,14 @@ export function useGitHubSync() {
       ]);
     }
 
+    // Insert skill files if any
+    for (const sf of (prompt.skill_files || [])) {
+      db.run(
+        'INSERT OR REPLACE INTO skill_files (id, prompt_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), promptId, sf.filename, sf.file_type, sf.content, now, now]
+      );
+    }
+
     return promptId;
   };
 
@@ -621,6 +667,15 @@ export function useGitHubSync() {
         now,
         now,
       ]);
+    }
+
+    // Update skill files
+    db.run('DELETE FROM skill_files WHERE prompt_id = ?', [localPromptId]);
+    for (const sf of (remote.skill_files || [])) {
+      db.run(
+        'INSERT INTO skill_files (id, prompt_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), localPromptId, sf.filename, sf.file_type, sf.content, now, now]
+      );
     }
   };
 

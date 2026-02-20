@@ -134,6 +134,20 @@ function createTables(): void {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS skill_files (
+      id TEXT PRIMARY KEY,
+      prompt_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      file_type TEXT NOT NULL DEFAULT 'reference',
+      content TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
+      UNIQUE(prompt_id, filename)
+    )
+  `);
+
   saveToIndexedDB();
 }
 
@@ -174,6 +188,7 @@ export async function exportDatabaseAsJson(): Promise<string> {
   const annotations = database.exec('SELECT * FROM version_annotations');
   const chatExamples = database.exec('SELECT * FROM chat_examples');
   const promptUsage = database.exec('SELECT * FROM prompt_usage');
+  const skillFiles = database.exec('SELECT * FROM skill_files ORDER BY file_type, filename');
 
   return JSON.stringify({
     version: 1,
@@ -185,6 +200,7 @@ export async function exportDatabaseAsJson(): Promise<string> {
     version_annotations: annotations[0]?.values || [],
     chat_examples: chatExamples[0]?.values || [],
     prompt_usage: promptUsage[0]?.values || [],
+    skill_files: skillFiles[0]?.values || [],
   }, null, 2);
 }
 
@@ -215,6 +231,27 @@ export async function migrateDatabase(): Promise<void> {
     database.exec("SELECT color FROM tags LIMIT 1");
   } catch {
     database.run(`ALTER TABLE tags ADD COLUMN color TEXT DEFAULT '${DEFAULT_TAG_COLOR}'`);
+    await saveToIndexedDB();
+  }
+
+  // Add skill_files table if it doesn't exist
+  const skillFilesCheck = database.exec(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='skill_files'"
+  );
+  if (!skillFilesCheck[0]?.values?.length) {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS skill_files (
+        id TEXT PRIMARY KEY,
+        prompt_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        file_type TEXT NOT NULL DEFAULT 'reference',
+        content TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
+        UNIQUE(prompt_id, filename)
+      )
+    `);
     await saveToIndexedDB();
   }
 }
