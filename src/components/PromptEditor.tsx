@@ -250,7 +250,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   if (!isNew && !prompt) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Selecteer een prompt of maak een nieuwe aan
+        Select a skill or create a new one
       </div>
     );
   }
@@ -266,7 +266,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
           className="max-w-md border-0 bg-transparent text-lg font-semibold focus-visible:ring-0"
         />
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Kopieer naar clipboard (Ctrl+Shift+K)">
+          <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Copy to clipboard (Ctrl+Shift+K)">
             <Copy className="h-4 w-4" />
           </Button>
           {!isNew && prompt && (
@@ -279,15 +279,15 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Prompt verwijderen?</AlertDialogTitle>
+                    <AlertDialogTitle>Delete skill?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Dit verwijdert de prompt en alle versies permanent.
+                      This will permanently delete the skill and all its versions.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Verwijderen
+                      Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -295,13 +295,13 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
               {!isEditingNewVersion && !isViewingOldVersion && (
                 <Button onClick={handleStartNewVersion}>
                   <FilePlus className="mr-2 h-4 w-4" />
-                  Nieuwe versie maken
+                  New version
                 </Button>
               )}
             </>
           )}
           <Button variant="outline" onClick={onCancel}>
-            Sluiten
+            Close
           </Button>
         </div>
       </div>
@@ -313,12 +313,12 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col overflow-hidden">
             <div className="border-b border-border px-4">
               <TabsList className="h-10">
-                <TabsTrigger value="editor">Prompt</TabsTrigger>
+                <TabsTrigger value="editor">Skill content</TabsTrigger>
                 {!isNew && prompt && (
                   <>
-                    <TabsTrigger value="usage">Toelichting gebruik</TabsTrigger>
-                    <TabsTrigger value="examples">Chat-voorbeelden versie</TabsTrigger>
-                    <TabsTrigger value="notes">Notities versies</TabsTrigger>
+                    <TabsTrigger value="usage">Deployment notes</TabsTrigger>
+                    <TabsTrigger value="examples">Test examples</TabsTrigger>
+                    <TabsTrigger value="notes">Version notes</TabsTrigger>
                     <TabsTrigger value="files">Bundled files</TabsTrigger>
                   </>
                 )}
@@ -330,12 +330,12 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                 {/* Viewing old version banner */}
                 {isViewingOldVersion && (
                   <div className="mb-4 flex items-center justify-between rounded-md bg-amber-100 p-3 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-                    <span className="text-sm font-medium">
-                      Je bekijkt versie {viewingVersion?.version_number} (alleen lezen)
+                  <span className="text-sm font-medium">
+                      Viewing version {viewingVersion?.version_number} (read-only)
                     </span>
                     <Button variant="outline" size="sm" onClick={stopViewing}>
                       <EyeOff className="mr-1 h-3 w-3" />
-                      Terug naar actieve versie
+                      Back to active version
                     </Button>
                   </div>
                 )}
@@ -343,19 +343,19 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                 {/* Editing new version banner */}
                 {isEditingNewVersion && (
                   <div className="mb-4 flex items-center justify-between rounded-md bg-blue-100 p-3 text-blue-900 dark:bg-blue-900/20 dark:text-blue-200">
-                    <span className="text-sm font-medium">
-                      Je bewerkt een nieuwe versie
+                  <span className="text-sm font-medium">
+                      Editing a new version
                     </span>
                     <Button variant="outline" size="sm" onClick={handleCancelNewVersion}>
                       <X className="mr-1 h-3 w-3" />
-                      Annuleren
+                      Cancel
                     </Button>
                   </div>
                 )}
 
                 {/* Tags */}
                 <div className="mb-4 space-y-2">
-                  <Label>Tags <span className="text-xs text-muted-foreground ml-1">(T om te focussen, Alt+1-9 om te togglen)</span></Label>
+                  <Label>Tags <span className="text-xs text-muted-foreground ml-1">(T to focus, Alt+1-9 to toggle)</span></Label>
                   <div className="flex flex-wrap gap-2">
                     {tags.map((tag, index) => {
                       const isSelected = selectedTags.includes(tag.id);
@@ -383,9 +383,9 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     })}
                     {!isViewingOldVersion && (
                       <div className="flex items-center gap-1">
-                        <Input
+                      <Input
                           id="tag-input"
-                          placeholder="Nieuwe tag..."
+                          placeholder="New tag..."
                           value={newTagName}
                           onChange={(e) => setNewTagName(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
@@ -403,7 +403,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                 <div className="flex-1 min-h-0">
                   {isNew || isEditingNewVersion ? (
                     <Textarea
-                      placeholder="Schrijf je prompt hier..."
+                      placeholder="Write your skill instructions here..."
                       value={editingContent}
                       onChange={(e) => setEditingContent(e.target.value)}
                       className="h-full min-h-[300px] resize-none font-mono text-sm"
@@ -424,7 +424,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                         disabled={isSaving || !title.trim() || !editingContent.trim()}
                       >
                         <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? 'Opslaan...' : 'Opslaan'}
+                        {isSaving ? 'Saving...' : 'Save'}
                       </Button>
                     ) : (
                       <Button 
@@ -432,7 +432,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                         disabled={isSaving || !title.trim() || !editingContent.trim()}
                       >
                         <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? 'Opslaan...' : 'Nieuwe versie opslaan'}
+                        {isSaving ? 'Saving...' : 'Save new version'}
                       </Button>
                     )}
                   </div>
@@ -474,7 +474,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
           <div className="w-64 border-l border-border bg-muted/30">
             <div className="flex items-center gap-2 border-b border-border p-3">
               <History className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Versiegeschiedenis</span>
+              <span className="text-sm font-medium">Version history</span>
             </div>
             <ScrollArea className="h-[calc(100%-49px)]">
               <div className="divide-y divide-border">
@@ -494,12 +494,12 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                         v{version.version_number}
                         {version.is_active && (
                           <Badge className="ml-2 text-xs bg-primary text-primary-foreground">
-                            Actief
+                            Active
                           </Badge>
                         )}
                         {viewingVersion?.id === version.id && (
                           <Badge variant="outline" className="ml-2 text-xs border-amber-500 text-amber-700 dark:text-amber-400">
-                            Bekijken
+                            Viewing
                           </Badge>
                         )}
                       </span>
@@ -519,7 +519,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                           onClick={() => handleViewVersion(version)}
                         >
                           <Eye className="mr-1 h-3 w-3" />
-                          {viewingVersion?.id === version.id ? 'Stop' : 'Bekijk'}
+                           {viewingVersion?.id === version.id ? 'Stop' : 'View'}
                         </Button>
                         <Button
                           size="sm"
@@ -528,7 +528,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                           onClick={() => handleRestoreVersion(version.id)}
                         >
                           <RotateCcw className="mr-1 h-3 w-3" />
-                          Herstel
+                          Restore
                         </Button>
                       </div>
                     )}

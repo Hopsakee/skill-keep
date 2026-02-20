@@ -35,7 +35,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenTagManagement }:
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
         <div className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
-          <span className="text-xl font-semibold tracking-tight">Prompt Vault</span>
+          <span className="text-xl font-semibold tracking-tight">Skills Vault</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Local</span>
         </div>
 
