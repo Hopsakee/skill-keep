@@ -44,14 +44,14 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
     e?.stopPropagation();
     const content = prompt.active_version?.content || '';
     if (!content) {
-      toast.error('Geen content om te kopiëren');
+      toast.error('No content to copy');
       return;
     }
     try {
       await navigator.clipboard.writeText(content);
-      toast.success(`"${prompt.title}" gekopieerd naar clipboard`);
+      toast.success(`"${prompt.title}" copied to clipboard`);
     } catch {
-      toast.error('Kopiëren mislukt');
+      toast.error('Copy failed');
     }
   };
 
@@ -121,20 +121,20 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Vandaag';
-    if (diffDays === 1) return 'Gisteren';
-    if (diffDays < 7) return `${diffDays} dagen geleden`;
-    return date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
   };
 
   return (
     <div className="flex h-full flex-col border-r border-border bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border p-4">
-        <h1 className="text-lg font-semibold">Prompts</h1>
+        <h1 className="text-lg font-semibold">Skills</h1>
         <Button size="sm" onClick={onNewPrompt}>
           <Plus className="mr-1 h-4 w-4" />
-          Nieuw
+          New
         </Button>
       </div>
 
@@ -144,7 +144,7 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
-            placeholder="Zoeken... (druk /)"
+            placeholder="Search... (press /)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -156,17 +156,17 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="text-xs">
                 <ArrowUpDown className="mr-1 h-3 w-3" />
-                {sortBy === 'updated' ? 'Laatst gewijzigd' : 'Alfabetisch'}
+                {sortBy === 'updated' ? 'Last modified' : 'Alphabetical'}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => setSortBy('updated')}>
+                <DropdownMenuItem onClick={() => setSortBy('updated')}>
                 <Clock className="mr-2 h-4 w-4" />
-                Laatst gewijzigd
+                Last modified
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy('alphabetical')}>
                 <SortAsc className="mr-2 h-4 w-4" />
-                Alfabetisch
+                Alphabetical
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -192,10 +192,10 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
       {/* Prompt list */}
       <ScrollArea className="flex-1">
         {isLoading ? (
-          <div className="p-4 text-center text-muted-foreground">Laden...</div>
+          <div className="p-4 text-center text-muted-foreground">Loading...</div>
         ) : filteredPrompts.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
-            {prompts.length === 0 ? 'Nog geen prompts' : 'Geen resultaten'}
+            {prompts.length === 0 ? 'No skills yet' : 'No results'}
           </div>
         ) : (
           <div className="divide-y divide-border">
