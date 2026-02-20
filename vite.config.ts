@@ -46,20 +46,7 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/sql\.js\.org\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "sql-js-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-            },
-          },
-        ],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
       },
     }),
   ].filter(Boolean),
