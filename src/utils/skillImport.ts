@@ -34,7 +34,8 @@ function parseSkillMd(raw: string): { name: string; body: string } {
  */
 export function inferFileType(filename: string): 'script' | 'reference' {
   const scriptExts = ['.py', '.js', '.ts', '.sh', '.rb', '.go', '.java', '.cs', '.cpp', '.c', '.rs', '.php'];
-  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  const basename = filename.split('/').pop() || filename;
+  const ext = basename.substring(basename.lastIndexOf('.')).toLowerCase();
   return scriptExts.includes(ext) ? 'script' : 'reference';
 }
 

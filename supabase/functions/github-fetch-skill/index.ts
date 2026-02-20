@@ -94,11 +94,8 @@ Deno.serve(async (req) => {
     const files: Array<{ filename: string; content: string }> = [];
 
     for (const item of relevantItems) {
-      // Remove the prefix to get relative filename
+      // Remove the prefix to get relative path (preserves subdirectory structure, e.g. scripts/foo.py)
       const relativePath = item.path.slice(prefix.length);
-
-      // Skip nested directories (only take top-level files in the skill dir)
-      if (relativePath.includes('/')) continue;
 
       const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`;
       const blobRes = await fetch(blobUrl, { headers });
@@ -112,9 +109,13 @@ Deno.serve(async (req) => {
       let content = '';
 
       if (blob.encoding === 'base64') {
-        // Decode base64
-        const binaryStr = atob(blob.content.replace(/\n/g, ''));
-        content = binaryStr;
+        // Decode base64 to text (best-effort; binary files may garble but that's acceptable)
+        try {
+          const binaryStr = atob(blob.content.replace(/\n/g, ''));
+          content = binaryStr;
+        } catch {
+          content = blob.content; // fallback: raw base64
+        }
       } else {
         content = blob.content;
       }
