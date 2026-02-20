@@ -26,7 +26,7 @@ export function usePrompts() {
     queryFn: async () => {
       const db = await getDatabase();
       
-      const promptsResult = db.exec('SELECT id, title, created_at, updated_at FROM prompts ORDER BY updated_at DESC');
+      const promptsResult = db.exec('SELECT id, title, description, license, created_at, updated_at FROM prompts ORDER BY updated_at DESC');
       const versionsResult = db.exec('SELECT id, prompt_id, content, version_number, is_active, created_at FROM prompt_versions WHERE is_active = 1');
       const tagsResult = db.exec('SELECT id, name, color FROM tags');
       const promptTagsResult = db.exec('SELECT prompt_id, tag_id FROM prompt_tags');
@@ -86,15 +86,17 @@ export function usePrompts() {
   });
 
   const createPromptMutation = useMutation({
-    mutationFn: async ({ title, content, tagIds }: { title: string; content: string; tagIds?: string[] }) => {
+    mutationFn: async ({ title, description, license, content, tagIds }: { title: string; description?: string; license?: string; content: string; tagIds?: string[] }) => {
       const db = await getDatabase();
       const promptId = generateId();
       const versionId = generateId();
       const now = new Date().toISOString();
 
-      db.run('INSERT INTO prompts (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)', [
+      db.run('INSERT INTO prompts (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
         promptId,
         title,
+        description || '',
+        license || '',
         now,
         now,
       ]);
@@ -119,10 +121,10 @@ export function usePrompts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
-      toast({ title: 'Prompt aangemaakt' });
+      toast({ title: 'Skill created' });
     },
     onError: (error) => {
-      toast({ variant: 'destructive', title: 'Fout', description: error.message });
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
     },
   });
 
@@ -130,18 +132,22 @@ export function usePrompts() {
     mutationFn: async ({
       promptId,
       title,
+      description,
+      license,
       content,
       tagIds,
     }: {
       promptId: string;
       title: string;
+      description?: string;
+      license?: string;
       content: string;
       tagIds?: string[];
     }) => {
       const db = await getDatabase();
       const now = new Date().toISOString();
 
-      db.run('UPDATE prompts SET title = ?, updated_at = ? WHERE id = ?', [title, now, promptId]);
+      db.run('UPDATE prompts SET title = ?, description = ?, license = ?, updated_at = ? WHERE id = ?', [title, description || '', license || '', now, promptId]);
 
       // Get current active version ID for copying chat examples
       const activeVersionResult = db.exec(

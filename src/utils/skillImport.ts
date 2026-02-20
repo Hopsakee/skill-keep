@@ -8,25 +8,46 @@ export interface ImportedSkillFile {
 
 export interface ParsedSkill {
   title: string;
+  description: string;
+  license: string;
   skillMdContent: string; // The SKILL.md body (without frontmatter)
   files: ImportedSkillFile[]; // All other files (scripts, references)
 }
 
+interface FrontmatterFields {
+  name: string;
+  description: string;
+  license: string;
+  body: string;
+}
+
 /**
  * Parse frontmatter from a SKILL.md string.
- * Returns { name, body } where body is the content after frontmatter.
+ * Extracts name, description, license and the body content.
  */
-function parseSkillMd(raw: string): { name: string; body: string } {
-  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+function parseSkillMd(raw: string): FrontmatterFields {
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!fmMatch) {
-    return { name: '', body: raw.trim() };
+    return { name: '', description: '', license: '', body: raw.trim() };
   }
   const frontmatter = fmMatch[1];
   const body = fmMatch[2].trim();
 
-  const nameMatch = frontmatter.match(/name:\s*"?([^"\n]+)"?/);
-  const name = nameMatch ? nameMatch[1].trim() : '';
-  return { name, body };
+  const extract = (key: string) => {
+    // Handle quoted: key: "value" or unquoted: key: value, and multiline with |
+    const quoted = frontmatter.match(new RegExp(`${key}:\\s*"([^"]*)"`, 'm'));
+    if (quoted) return quoted[1].trim();
+    const unquoted = frontmatter.match(new RegExp(`${key}:\\s*([^\\n]+)`, 'm'));
+    if (unquoted) return unquoted[1].trim();
+    return '';
+  };
+
+  return {
+    name: extract('name'),
+    description: extract('description'),
+    license: extract('license'),
+    body,
+  };
 }
 
 /**
@@ -41,14 +62,11 @@ export function inferFileType(filename: string): 'script' | 'reference' {
 
 /**
  * Parse a ZIP file containing one or more skill folders.
- * Each folder should have SKILL.md + optional bundled files.
- * If no folder structure — treat all files as a single skill named after the ZIP filename.
  */
 export async function parseSkillZip(zipFile: File): Promise<ParsedSkill[]> {
   const zip = await JSZip.loadAsync(zipFile);
   const skills: ParsedSkill[] = [];
 
-  // Group files by top-level folder (or root)
   const groups = new Map<string, Map<string, string>>();
 
   for (const [path, entry] of Object.entries(zip.files)) {
@@ -62,7 +80,6 @@ export async function parseSkillZip(zipFile: File): Promise<ParsedSkill[]> {
       groups.set(folder, new Map());
     }
 
-    // Only text files
     try {
       const content = await entry.async('text');
       groups.get(folder)!.set(filename, content);
@@ -73,7 +90,7 @@ export async function parseSkillZip(zipFile: File): Promise<ParsedSkill[]> {
 
   for (const [folder, fileMap] of groups.entries()) {
     const skillMdRaw = fileMap.get('SKILL.md') || fileMap.get('skill.md') || '';
-    const { name: frontmatterName, body } = parseSkillMd(skillMdRaw);
+    const { name: frontmatterName, description, license, body } = parseSkillMd(skillMdRaw);
 
     const title =
       frontmatterName ||
@@ -85,11 +102,7 @@ export async function parseSkillZip(zipFile: File): Promise<ParsedSkill[]> {
       bundledFiles.push({ filename, content });
     }
 
-    skills.push({
-      title,
-      skillMdContent: body,
-      files: bundledFiles,
-    });
+    skills.push({ title, description, license, skillMdContent: body, files: bundledFiles });
   }
 
   return skills;
@@ -102,15 +115,15 @@ export function parseSkillFromGitHub(
   skillTitle: string,
   rawFiles: Array<{ filename: string; content: string }>
 ): ParsedSkill {
-  const skillMdFile = rawFiles.find(
-    (f) => f.filename.toLowerCase() === 'skill.md'
-  );
-  const { name: frontmatterName, body } = parseSkillMd(skillMdFile?.content || '');
+  const skillMdFile = rawFiles.find((f) => f.filename.toLowerCase() === 'skill.md');
+  const { name: frontmatterName, description, license, body } = parseSkillMd(skillMdFile?.content || '');
 
   const bundledFiles = rawFiles.filter((f) => f.filename.toLowerCase() !== 'skill.md');
 
   return {
     title: frontmatterName || skillTitle,
+    description,
+    license,
     skillMdContent: body,
     files: bundledFiles,
   };
@@ -126,8 +139,8 @@ export async function saveSkillToDatabase(skill: ParsedSkill): Promise<string> {
   const versionId = generateId();
 
   db.run(
-    'INSERT INTO prompts (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
-    [promptId, skill.title, now, now]
+    'INSERT INTO prompts (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [promptId, skill.title, skill.description || '', skill.license || '', now, now]
   );
 
   db.run(

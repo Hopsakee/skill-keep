@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +54,8 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   const restoreVersion = useRestoreVersion();
 
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [license, setLicense] = useState('');
   const [content, setContent] = useState('');
   const [editingContent, setEditingContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -65,6 +68,8 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   useEffect(() => {
     if (prompt) {
       setTitle(prompt.title);
+      setDescription(prompt.description || '');
+      setLicense(prompt.license || '');
       setContent(prompt.active_version?.content || '');
       setEditingContent(prompt.active_version?.content || '');
       setSelectedTags(prompt.tags?.map((t) => t.id) || []);
@@ -73,6 +78,8 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
       setIsEditingNewVersion(false);
     } else {
       setTitle('');
+      setDescription('');
+      setLicense('');
       setContent('');
       setEditingContent('');
       setSelectedTags([]);
@@ -85,18 +92,15 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   const isViewingOldVersion = viewingVersion !== null;
 
   const toggleTagById = async (tagId: string) => {
-    const newTags = selectedTags.includes(tagId) 
-      ? selectedTags.filter((id) => id !== tagId) 
+    const newTags = selectedTags.includes(tagId)
+      ? selectedTags.filter((id) => id !== tagId)
       : [...selectedTags, tagId];
     setSelectedTags(newTags);
-    
-    // Save tags immediately for existing prompts (not when creating new or editing version)
     if (prompt && !isNew && !isEditingNewVersion) {
       await updateTags({ promptId: prompt.id, tagIds: newTags });
     }
   };
 
-  // Expose methods via ref
   useImperativeHandle(ref, () => ({
     triggerSave: () => {
       if (isNew) {
@@ -112,7 +116,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     },
     switchTab: (tabIndex: number) => {
       if (tabIndex >= 0 && tabIndex < tabValues.length) {
-        // Only allow tabs 1-3 for existing prompts
         if (!isNew || tabIndex === 0) {
           setActiveTab(tabValues[tabIndex]);
         }
@@ -127,15 +130,22 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
 
   const handleCreateNewPrompt = async () => {
     if (!title.trim() || !editingContent.trim()) return;
-    await createPrompt({ title, content: editingContent, tagIds: selectedTags });
+    await createPrompt({ title, description, license, content: editingContent, tagIds: selectedTags });
     onSave();
   };
 
   const handleSaveNewVersion = async () => {
     if (!prompt || !title.trim() || !editingContent.trim()) return;
-    await updatePrompt({ promptId: prompt.id, title, content: editingContent, tagIds: selectedTags });
+    await updatePrompt({ promptId: prompt.id, title, description, license, content: editingContent, tagIds: selectedTags });
     setIsEditingNewVersion(false);
     setContent(editingContent);
+    onSave();
+  };
+
+  // Save metadata (name/description/license) without creating a new version
+  const handleSaveMetadata = async () => {
+    if (!prompt || !title.trim()) return;
+    await updatePrompt({ promptId: prompt.id, title, description, license, content, tagIds: selectedTags });
     onSave();
   };
 
@@ -173,8 +183,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     const newTags = [...selectedTags, tag.id];
     setSelectedTags(newTags);
     setNewTagName('');
-    
-    // Save tags immediately for existing prompts
     if (prompt && !isNew && !isEditingNewVersion) {
       await updateTags({ promptId: prompt.id, tagIds: newTags });
     }
@@ -185,7 +193,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     await restoreVersion.mutateAsync({ promptId: prompt.id, versionId });
     setSelectedVersionId(versionId);
     setViewingVersion(null);
-    const restoredContent = versions?.find(v => v.id === versionId)?.content || '';
+    const restoredContent = versions?.find((v) => v.id === versionId)?.content || '';
     setContent(restoredContent);
     setEditingContent(restoredContent);
     setIsEditingNewVersion(false);
@@ -193,10 +201,8 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
 
   const handleViewVersion = (version: PromptVersion) => {
     if (viewingVersion?.id === version.id) {
-      // Stop viewing - go back to active version
       setViewingVersion(null);
     } else {
-      // View this version (read-only)
       setViewingVersion(version);
       setIsEditingNewVersion(false);
     }
@@ -207,12 +213,10 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   };
 
   const toggleTag = async (tagId: string) => {
-    const newTags = selectedTags.includes(tagId) 
-      ? selectedTags.filter((id) => id !== tagId) 
+    const newTags = selectedTags.includes(tagId)
+      ? selectedTags.filter((id) => id !== tagId)
       : [...selectedTags, tagId];
     setSelectedTags(newTags);
-    
-    // Save tags immediately for existing prompts (not when creating new or editing version)
     if (prompt && !isNew && !isEditingNewVersion) {
       await updateTags({ promptId: prompt.id, tagIds: newTags });
     }
@@ -221,19 +225,19 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   const copyToClipboard = async () => {
     const textToCopy = isEditingNewVersion ? editingContent : (viewingVersion?.content || content);
     if (!textToCopy) {
-      toast.error('Geen content om te kopiëren');
+      toast.error('No content to copy');
       return;
     }
     try {
       await navigator.clipboard.writeText(textToCopy);
-      toast.success('Prompt gekopieerd naar clipboard');
+      toast.success('Copied to clipboard');
     } catch {
-      toast.error('Kopiëren mislukt');
+      toast.error('Copy failed');
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('nl-NL', {
+    return new Date(dateString).toLocaleString('en-US', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -244,7 +248,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   const isSaving = isCreating || isUpdating;
   const activeVersion = versions?.find((v) => v.is_active);
   const previousVersion = versions?.find((v) => v.version_number === (activeVersion?.version_number || 1) - 1);
-  // isViewingOldVersion is defined earlier
   const displayedContent = isViewingOldVersion ? viewingVersion.content : content;
 
   if (!isNew && !prompt) {
@@ -259,14 +262,11 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border p-4">
-        <Input
-          placeholder="Titel..."
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="max-w-md border-0 bg-transparent text-lg font-semibold focus-visible:ring-0"
-        />
+        <span className="text-lg font-semibold text-foreground">
+          {isNew ? 'New skill' : title || 'Untitled'}
+        </span>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Copy to clipboard (Ctrl+Shift+K)">
+          <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Copy instructions to clipboard">
             <Copy className="h-4 w-4" />
           </Button>
           {!isNew && prompt && (
@@ -286,7 +286,10 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -325,118 +328,183 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
               </TabsList>
             </div>
 
-            <TabsContent value="editor" className="flex-1 overflow-hidden p-0 mt-0">
-              <div className="flex h-full flex-col p-4">
-                {/* Viewing old version banner */}
-                {isViewingOldVersion && (
-                  <div className="mb-4 flex items-center justify-between rounded-md bg-amber-100 p-3 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-                  <span className="text-sm font-medium">
-                      Viewing version {viewingVersion?.version_number} (read-only)
-                    </span>
-                    <Button variant="outline" size="sm" onClick={stopViewing}>
-                      <EyeOff className="mr-1 h-3 w-3" />
-                      Back to active version
-                    </Button>
-                  </div>
-                )}
+            <TabsContent value="editor" className="flex-1 overflow-auto p-0 mt-0">
+              <div className="flex h-full flex-col">
 
-                {/* Editing new version banner */}
-                {isEditingNewVersion && (
-                  <div className="mb-4 flex items-center justify-between rounded-md bg-blue-100 p-3 text-blue-900 dark:bg-blue-900/20 dark:text-blue-200">
-                  <span className="text-sm font-medium">
-                      Editing a new version
-                    </span>
-                    <Button variant="outline" size="sm" onClick={handleCancelNewVersion}>
-                      <X className="mr-1 h-3 w-3" />
-                      Cancel
-                    </Button>
-                  </div>
-                )}
+                {/* ── Metadata section (YAML frontmatter fields) ───────────── */}
+                <div className="border-b border-border bg-muted/20 px-4 py-4 space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    SKILL.md frontmatter
+                  </p>
 
-                {/* Tags */}
-                <div className="mb-4 space-y-2">
-                  <Label>Tags <span className="text-xs text-muted-foreground ml-1">(T to focus, Alt+1-9 to toggle)</span></Label>
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map((tag, index) => {
-                      const isSelected = selectedTags.includes(tag.id);
-                      return (
-                        <Badge
-                          key={tag.id}
-                          variant="outline"
-                          className={`cursor-pointer transition-all ${!isViewingOldVersion ? 'hover:opacity-80' : 'opacity-60'}`}
-                          style={{
-                            backgroundColor: isSelected ? tag.color : 'transparent',
-                            borderColor: tag.color,
-                            color: isSelected ? 'white' : tag.color,
-                          }}
-                          onClick={() => !isViewingOldVersion && toggleTag(tag.id)}
-                        >
-                          {index < 9 && (
-                            <span className="mr-1 text-xs opacity-60">{index + 1}</span>
-                          )}
-                          {tag.name}
-                          {isSelected && !isViewingOldVersion && (
-                            <X className="ml-1 h-3 w-3" />
-                          )}
-                        </Badge>
-                      );
-                    })}
-                    {!isViewingOldVersion && (
-                      <div className="flex items-center gap-1">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* Name */}
+                    <div className="space-y-1">
+                      <Label htmlFor="skill-name" className="text-xs">Name <span className="text-destructive">*</span></Label>
                       <Input
-                          id="tag-input"
-                          placeholder="New tag..."
-                          value={newTagName}
-                          onChange={(e) => setNewTagName(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                          className="h-6 w-28 text-xs"
-                        />
-                        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={handleAddTag}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                        id="skill-name"
+                        placeholder="my-skill-name"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        disabled={isViewingOldVersion}
+                        className="h-8 text-sm font-mono"
+                      />
+                    </div>
 
-                {/* Content area */}
-                <div className="flex-1 min-h-0">
-                  {isNew || isEditingNewVersion ? (
+                    {/* License */}
+                    <div className="space-y-1">
+                      <Label htmlFor="skill-license" className="text-xs">License <span className="text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        id="skill-license"
+                        placeholder="MIT"
+                        value={license}
+                        onChange={(e) => setLicense(e.target.value)}
+                        disabled={isViewingOldVersion}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1">
+                    <Label htmlFor="skill-description" className="text-xs">Description <span className="text-destructive">*</span></Label>
                     <Textarea
-                      placeholder="Write your skill instructions here..."
-                      value={editingContent}
-                      onChange={(e) => setEditingContent(e.target.value)}
-                      className="h-full min-h-[300px] resize-none font-mono text-sm"
+                      id="skill-description"
+                      placeholder="What does this skill do? (max 1024 chars)"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value.slice(0, 1024))}
+                      disabled={isViewingOldVersion}
+                      rows={2}
+                      className="resize-none text-sm"
                     />
-                  ) : (
-                    <div className="h-full min-h-[300px] rounded-md border border-input bg-muted/30">
-                      <MarkdownPreview content={displayedContent} className="h-full" />
+                    <p className="text-right text-xs text-muted-foreground">{description.length}/1024</p>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tags</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {tags.map((tag, index) => {
+                        const isSelected = selectedTags.includes(tag.id);
+                        return (
+                          <Badge
+                            key={tag.id}
+                            variant="outline"
+                            className={`cursor-pointer transition-all ${!isViewingOldVersion ? 'hover:opacity-80' : 'opacity-60'}`}
+                            style={{
+                              backgroundColor: isSelected ? tag.color : 'transparent',
+                              borderColor: tag.color,
+                              color: isSelected ? 'white' : tag.color,
+                            }}
+                            onClick={() => !isViewingOldVersion && toggleTag(tag.id)}
+                          >
+                            {index < 9 && <span className="mr-1 text-xs opacity-60">{index + 1}</span>}
+                            {tag.name}
+                            {isSelected && !isViewingOldVersion && <X className="ml-1 h-3 w-3" />}
+                          </Badge>
+                        );
+                      })}
+                      {!isViewingOldVersion && (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            id="tag-input"
+                            placeholder="New tag..."
+                            value={newTagName}
+                            onChange={(e) => setNewTagName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                            className="h-6 w-28 text-xs"
+                          />
+                          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={handleAddTag}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Save metadata button for existing skills (when not editing new version) */}
+                  {!isNew && !isEditingNewVersion && !isViewingOldVersion && (
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="secondary" onClick={handleSaveMetadata} disabled={isSaving || !title.trim()}>
+                        <Save className="mr-1 h-3 w-3" />
+                        Save metadata
+                      </Button>
                     </div>
                   )}
                 </div>
 
-                {/* Save button at the bottom for new prompts or new versions */}
-                {(isNew || isEditingNewVersion) && (
-                  <div className="mt-4 flex justify-end border-t border-border pt-4">
-                    {isNew ? (
-                      <Button 
-                        onClick={handleCreateNewPrompt} 
-                        disabled={isSaving || !title.trim() || !editingContent.trim()}
-                      >
-                        <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? 'Saving...' : 'Save'}
+                {/* ── Instructions section ────────────────────────────────── */}
+                <div className="flex flex-1 flex-col min-h-0 px-4 py-4 gap-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Instructions (SKILL.md body)
+                    </p>
+                    {isViewingOldVersion && (
+                      <Button variant="outline" size="sm" onClick={stopViewing}>
+                        <EyeOff className="mr-1 h-3 w-3" />
+                        Back to active version
                       </Button>
-                    ) : (
-                      <Button 
-                        onClick={handleSaveNewVersion} 
-                        disabled={isSaving || !title.trim() || !editingContent.trim()}
-                      >
-                        <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? 'Saving...' : 'Save new version'}
+                    )}
+                    {isEditingNewVersion && (
+                      <Button variant="outline" size="sm" onClick={handleCancelNewVersion}>
+                        <X className="mr-1 h-3 w-3" />
+                        Cancel new version
                       </Button>
                     )}
                   </div>
-                )}
+
+                  {isViewingOldVersion && (
+                    <div className="flex items-center gap-2 rounded-md bg-muted border border-border px-3 py-2 text-xs text-muted-foreground">
+                      <Eye className="h-3 w-3 shrink-0" />
+                      Viewing version {viewingVersion?.version_number} — read-only
+                    </div>
+                  )}
+                  {isEditingNewVersion && (
+                    <div className="flex items-center gap-2 rounded-md bg-muted border border-border px-3 py-2 text-xs text-muted-foreground">
+                      <Pencil className="h-3 w-3 shrink-0" />
+                      Editing a new version — saving will increment the version number
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-h-[200px]">
+                    {isNew || isEditingNewVersion ? (
+                      <Textarea
+                        placeholder="Write your skill instructions here..."
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        className="h-full min-h-[200px] resize-none font-mono text-sm"
+                      />
+                    ) : (
+                      <div className="h-full min-h-[200px] rounded-md border border-input bg-muted/30">
+                        <MarkdownPreview content={displayedContent} className="h-full" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save buttons */}
+                  {(isNew || isEditingNewVersion) && (
+                    <div className="flex justify-end border-t border-border pt-3">
+                      {isNew ? (
+                        <Button
+                          onClick={handleCreateNewPrompt}
+                          disabled={isSaving || !title.trim() || !editingContent.trim()}
+                        >
+                          <Save className="mr-2 h-4 w-4" />
+                          {isSaving ? 'Saving...' : 'Create skill'}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={handleSaveNewVersion}
+                          disabled={isSaving || !title.trim() || !editingContent.trim()}
+                        >
+                          <Save className="mr-2 h-4 w-4" />
+                          {isSaving ? 'Saving...' : 'Save new version'}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </TabsContent>
 
@@ -448,8 +516,8 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
 
                 <TabsContent value="examples" className="flex-1 overflow-hidden p-0 mt-0">
                   {activeVersion && (
-                    <VersionChatExamples 
-                      versionId={activeVersion.id} 
+                    <VersionChatExamples
+                      versionId={activeVersion.id}
                       previousVersionId={previousVersion?.id}
                     />
                   )}
@@ -482,20 +550,18 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                   <div
                     key={version.id}
                     className={`p-3 transition-colors ${
-                      version.is_active 
-                        ? 'bg-primary/10 border-l-4 border-l-primary' 
-                        : viewingVersion?.id === version.id 
-                          ? 'bg-amber-100/50 dark:bg-amber-900/20 border-l-4 border-l-amber-500' 
-                          : 'border-l-4 border-l-transparent'
+                      version.is_active
+                        ? 'bg-primary/10 border-l-4 border-l-primary'
+                        : viewingVersion?.id === version.id
+                        ? 'bg-amber-100/50 dark:bg-amber-900/20 border-l-4 border-l-amber-500'
+                        : 'border-l-4 border-l-transparent'
                     }`}
                   >
                     <div className="mb-1 flex items-center justify-between">
                       <span className={`text-sm ${version.is_active ? 'font-semibold' : 'font-medium'}`}>
                         v{version.version_number}
                         {version.is_active && (
-                          <Badge className="ml-2 text-xs bg-primary text-primary-foreground">
-                            Active
-                          </Badge>
+                          <Badge className="ml-2 text-xs bg-primary text-primary-foreground">Active</Badge>
                         )}
                         {viewingVersion?.id === version.id && (
                           <Badge variant="outline" className="ml-2 text-xs border-amber-500 text-amber-700 dark:text-amber-400">
@@ -519,7 +585,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                           onClick={() => handleViewVersion(version)}
                         >
                           <Eye className="mr-1 h-3 w-3" />
-                           {viewingVersion?.id === version.id ? 'Stop' : 'View'}
+                          {viewingVersion?.id === version.id ? 'Stop' : 'View'}
                         </Button>
                         <Button
                           size="sm"

@@ -57,6 +57,8 @@ function createTables(): void {
     CREATE TABLE IF NOT EXISTS prompts (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      license TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -252,6 +254,20 @@ export async function migrateDatabase(): Promise<void> {
         UNIQUE(prompt_id, filename)
       )
     `);
+    await saveToIndexedDB();
+  }
+
+  // Add description and license columns to prompts if they don't exist
+  try {
+    database.exec("SELECT description FROM prompts LIMIT 1");
+  } catch {
+    database.run("ALTER TABLE prompts ADD COLUMN description TEXT DEFAULT ''");
+    await saveToIndexedDB();
+  }
+  try {
+    database.exec("SELECT license FROM prompts LIMIT 1");
+  } catch {
+    database.run("ALTER TABLE prompts ADD COLUMN license TEXT DEFAULT ''");
     await saveToIndexedDB();
   }
 }
