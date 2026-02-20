@@ -3,6 +3,8 @@
 export interface Prompt {
   id: string;
   title: string;
+  description?: string;
+  license?: string;
   created_at: string;
   updated_at: string;
   tags?: Tag[];
