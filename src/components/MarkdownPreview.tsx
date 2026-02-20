@@ -285,8 +285,15 @@ function processInline(text: string): string {
   // Strikethrough
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  // Links (with URL scheme validation to prevent javascript: XSS)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+    const trimmed = url.trim();
+    const lower = trimmed.toLowerCase();
+    const safeUrl = (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:'))
+      ? '#'
+      : trimmed;
+    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+  });
   
   return html;
 }
