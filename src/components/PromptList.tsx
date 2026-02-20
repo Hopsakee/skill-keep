@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Search, ArrowUpDown, Clock, SortAsc, Copy } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Search, ArrowUpDown, Clock, SortAsc, Copy, Download, X, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { downloadSkillsAsZip } from '@/utils/skillExport';
 
 interface PromptListProps {
   selectedPromptId: string | null;
@@ -38,6 +40,9 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('updated');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectMode, setSelectMode] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const copyPromptToClipboard = async (prompt: Prompt, e?: React.MouseEvent) => {
@@ -81,7 +86,6 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
   const filteredPrompts = useMemo(() => {
     let filtered = prompts;
 
-    // Filter by search
     if (search) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(
@@ -91,14 +95,12 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
       );
     }
 
-    // Filter by tags
     if (selectedTags.length > 0) {
       filtered = filtered.filter((p) =>
         selectedTags.every((tagId) => p.tags?.some((t) => t.id === tagId))
       );
     }
 
-    // Sort
     if (sortBy === 'alphabetical') {
       filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
     } else {
@@ -116,6 +118,43 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
     );
   };
 
+  const toggleCheck = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (checkedIds.size === filteredPrompts.length) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(filteredPrompts.map((p) => p.id)));
+    }
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setCheckedIds(new Set());
+  };
+
+  const handleExportZip = async () => {
+    if (checkedIds.size === 0) return;
+    setIsExporting(true);
+    try {
+      await downloadSkillsAsZip(Array.from(checkedIds));
+      toast.success(`${checkedIds.size} skill${checkedIds.size > 1 ? 's' : ''} exported as ZIP`);
+      exitSelectMode();
+    } catch (e) {
+      toast.error('Export failed');
+      console.error(e);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -127,15 +166,59 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
     return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
   };
 
+  const allChecked = filteredPrompts.length > 0 && checkedIds.size === filteredPrompts.length;
+  const someChecked = checkedIds.size > 0 && !allChecked;
+
   return (
     <div className="flex h-full flex-col border-r border-border bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border p-4">
-        <h1 className="text-lg font-semibold">Skills</h1>
-        <Button size="sm" onClick={onNewPrompt}>
-          <Plus className="mr-1 h-4 w-4" />
-          New
-        </Button>
+        {selectMode ? (
+          <>
+            <span className="text-sm font-medium text-muted-foreground">
+              {checkedIds.size} selected
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={toggleSelectAll}
+                title={allChecked ? 'Deselect all' : 'Select all'}
+              >
+                <CheckSquare className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExportZip}
+                disabled={checkedIds.size === 0 || isExporting}
+              >
+                <Download className="mr-1 h-4 w-4" />
+                Download ZIP
+              </Button>
+              <Button size="sm" variant="ghost" onClick={exitSelectMode}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-lg font-semibold">Skills</h1>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectMode(true)}
+                title="Select skills to export"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button size="sm" onClick={onNewPrompt}>
+                <Plus className="mr-1 h-4 w-4" />
+                New
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Search & Sort */}
@@ -160,7 +243,7 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => setSortBy('updated')}>
+              <DropdownMenuItem onClick={() => setSortBy('updated')}>
                 <Clock className="mr-2 h-4 w-4" />
                 Last modified
               </DropdownMenuItem>
@@ -204,11 +287,27 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
                 key={prompt.id}
                 className={cn(
                   'group relative flex items-start gap-2 p-4 transition-colors hover:bg-muted/50',
-                  selectedPromptId === prompt.id && 'bg-muted'
+                  !selectMode && selectedPromptId === prompt.id && 'bg-muted',
+                  selectMode && checkedIds.has(prompt.id) && 'bg-muted/60'
                 )}
               >
+                {selectMode && (
+                  <div className="flex shrink-0 items-center pt-0.5">
+                    <Checkbox
+                      checked={checkedIds.has(prompt.id)}
+                      onCheckedChange={() => toggleCheck(prompt.id)}
+                      aria-label={`Select ${prompt.title}`}
+                    />
+                  </div>
+                )}
                 <button
-                  onClick={() => onSelectPrompt(prompt)}
+                  onClick={() => {
+                    if (selectMode) {
+                      toggleCheck(prompt.id);
+                    } else {
+                      onSelectPrompt(prompt);
+                    }
+                  }}
                   className="flex-1 text-left"
                 >
                   <div className="mb-1 font-medium">{prompt.title}</div>
@@ -235,20 +334,29 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
                     )}
                   </div>
                 </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={(e) => copyPromptToClipboard(prompt, e)}
-                  title="Kopieer naar clipboard"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                {!selectMode && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={(e) => copyPromptToClipboard(prompt, e)}
+                    title="Copy to clipboard"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
         )}
       </ScrollArea>
+
+      {/* Select mode hint */}
+      {selectMode && (
+        <div className="border-t border-border px-4 py-2 text-center text-xs text-muted-foreground">
+          Click skills to select • ZIP preserves SKILL.md + bundled files
+        </div>
+      )}
     </div>
   );
 });
