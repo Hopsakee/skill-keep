@@ -41,6 +41,10 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
           prose-li:text-foreground prose-li:my-0 prose-li:leading-relaxed
           prose-blockquote:border-l-info prose-blockquote:text-muted-foreground prose-blockquote:italic
           prose-hr:border-border
+          prose-table:border-collapse prose-table:w-full prose-table:my-3
+          prose-thead:bg-muted/50
+          prose-th:border prose-th:border-border prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-sm prose-th:font-semibold prose-th:text-foreground
+          prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2 prose-td:text-sm prose-td:text-foreground
           [&>*:first-child]:mt-0
           [&_pre]:!bg-[#0d1117] [&_pre_code]:!bg-transparent [&_.hljs]:!bg-transparent"
         dangerouslySetInnerHTML={{ __html: html }}
@@ -153,6 +157,16 @@ function parseMarkdownToHtml(markdown: string): string {
       continue;
     }
     
+    // Table rows — collect consecutive pipe-starting lines
+    if (trimmed.startsWith('|')) {
+      if (currentBlock.length > 0 && !currentBlock[0].trim().startsWith('|')) {
+        blocks.push(processInlineBlock(currentBlock.join('\n')));
+        currentBlock = [];
+      }
+      currentBlock.push(line);
+      continue;
+    }
+
     // List items - collect consecutive list items
     if (/^[-*] /.test(trimmed)) {
       if (currentBlock.length > 0 && !/^[-*] /.test(currentBlock[0].trim())) {
@@ -173,8 +187,12 @@ function parseMarkdownToHtml(markdown: string): string {
     }
     
     // Regular text - add to current block
-    // If previous block was a list, flush it first
-    if (currentBlock.length > 0 && (/^[-*] /.test(currentBlock[0].trim()) || /^\d+\. /.test(currentBlock[0].trim()))) {
+    // If previous block was a list or table, flush it first
+    if (currentBlock.length > 0 && (
+      /^[-*] /.test(currentBlock[0].trim()) ||
+      /^\d+\. /.test(currentBlock[0].trim()) ||
+      currentBlock[0].trim().startsWith('|')
+    )) {
       blocks.push(processInlineBlock(currentBlock.join('\n')));
       currentBlock = [];
     }
@@ -192,6 +210,11 @@ function parseMarkdownToHtml(markdown: string): string {
 function processInlineBlock(text: string): string {
   const lines = text.split('\n').filter(l => l.trim() !== '');
   
+  // Check if this is a table (first line starts with |)
+  if (lines[0]?.trim().startsWith('|')) {
+    return parseTable(lines);
+  }
+
   // Check if this is a list
   const firstTrimmed = lines[0]?.trim() || '';
   if (/^[-*] /.test(firstTrimmed)) {
@@ -206,6 +229,37 @@ function processInlineBlock(text: string): string {
   // Regular paragraph - join lines with <br> for single line breaks
   const processed = lines.map(l => processInline(l)).join('<br>');
   return `<p>${processed}</p>`;
+}
+
+/** Parse a GFM-style markdown table into an HTML table */
+function parseTable(lines: string[]): string {
+  // Split a row into cells, stripping leading/trailing pipes and whitespace
+  const splitRow = (line: string) =>
+    line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+
+  const isSeparator = (line: string) => /^[\|\s\-:]+$/.test(line);
+
+  // Find separator row index
+  const sepIdx = lines.findIndex(isSeparator);
+  if (sepIdx === -1) {
+    // No separator — fall back to paragraph
+    return `<p>${lines.map(processInline).join('<br>')}</p>`;
+  }
+
+  const headerRows = lines.slice(0, sepIdx);
+  const bodyRows = lines.slice(sepIdx + 1);
+
+  const thead = headerRows.map(row => {
+    const cells = splitRow(row).map(c => `<th>${processInline(c)}</th>`).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  const tbody = bodyRows.map(row => {
+    const cells = splitRow(row).map(c => `<td>${processInline(c)}</td>`).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  return `<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 }
 
 function processInline(text: string): string {
