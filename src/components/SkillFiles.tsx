@@ -18,40 +18,74 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Terminal, FileText, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Terminal, FileText, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
 interface SkillFilesProps {
   promptId: string;
 }
 
+// ── Validation ──────────────────────────────────────────────────────────────
+
 function validateFilename(name: string, existing: SkillFile[], currentId?: string): string | null {
   if (!name.trim()) return 'Filename is required';
   if (/\s/.test(name)) return 'Filename cannot contain spaces';
-  if (!/^[a-zA-Z0-9._\-]+$/.test(name)) return 'Only letters, numbers, dots, hyphens, underscores allowed';
-  if (name.length > 100) return 'Filename too long (max 100 chars)';
+  if (!/^[a-zA-Z0-9._\-/]+$/.test(name)) return 'Only letters, numbers, dots, hyphens, underscores, slashes allowed';
+  if (name.length > 200) return 'Filename too long (max 200 chars)';
   const duplicate = existing.find((f) => f.filename === name.trim() && f.id !== currentId);
   if (duplicate) return 'A file with this name already exists';
   return null;
 }
 
+// ── Small helpers ────────────────────────────────────────────────────────────
+
 function FileTypeIcon({ type }: { type: 'script' | 'reference' }) {
-  if (type === 'script') return <Terminal className="h-4 w-4" style={{ color: 'hsl(var(--warning, 38 92% 50%))' }} />;
-  return <FileText className="h-4 w-4 text-primary" />;
+  if (type === 'script') return <Terminal className="h-4 w-4 shrink-0" style={{ color: 'hsl(var(--warning, 38 92% 50%))' }} />;
+  return <FileText className="h-4 w-4 shrink-0 text-primary" />;
 }
 
 function FileTypeBadge({ type }: { type: 'script' | 'reference' }) {
   if (type === 'script')
-    return (
-      <Badge variant="outline" className="text-xs">
-        script
-      </Badge>
-    );
-  return (
-    <Badge variant="secondary" className="text-xs">
-      reference
-    </Badge>
-  );
+    return <Badge variant="outline" className="text-xs">script</Badge>;
+  return <Badge variant="secondary" className="text-xs">reference</Badge>;
 }
+
+// ── Folder tree helpers ──────────────────────────────────────────────────────
+
+interface FileNode {
+  name: string;
+  file?: SkillFile;           // leaf
+  children?: Map<string, FileNode>; // directory
+}
+
+/** Build a tree from a flat list of files that may have paths like "scripts/office/foo.xsd" */
+function buildTree(files: SkillFile[]): Map<string, FileNode> {
+  const root = new Map<string, FileNode>();
+
+  for (const file of files) {
+    const parts = file.filename.split('/');
+    let current = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!current.has(part)) {
+        current.set(part, { name: part, children: new Map() });
+      }
+      const node = current.get(part)!;
+      if (i === parts.length - 1) {
+        node.file = file;
+        node.children = undefined; // leaf
+      } else {
+        if (!node.children) node.children = new Map();
+        current = node.children;
+      }
+    }
+  }
+
+  return root;
+}
+
+// ── Add file form ────────────────────────────────────────────────────────────
 
 interface AddFileFormProps {
   promptId: string;
@@ -87,9 +121,9 @@ function AddFileForm({ promptId, existingFiles, onClose, upsertFile, isUpserting
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Filename</Label>
+          <Label className="text-xs">Filename (path)</Label>
           <Input
-            placeholder="e.g. analyze.py"
+            placeholder="e.g. scripts/analyze.py"
             value={filename}
             onChange={(e) => handleFilenameChange(e.target.value)}
             className="h-8 text-sm font-mono"
@@ -135,15 +169,19 @@ function AddFileForm({ promptId, existingFiles, onClose, upsertFile, isUpserting
   );
 }
 
+// ── File row (leaf) ──────────────────────────────────────────────────────────
+
 interface FileRowProps {
   file: SkillFile;
   allFiles: SkillFile[];
+  label: string; // just the basename to display
+  indent: number;
   upsertFile: (args: { promptId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
   deleteFile: (id: string) => Promise<void>;
   isUpserting: boolean;
 }
 
-function FileRow({ file, allFiles, upsertFile, deleteFile, isUpserting }: FileRowProps) {
+function FileRow({ file, allFiles, label, indent, upsertFile, deleteFile, isUpserting }: FileRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [editFilename, setEditFilename] = useState(file.filename);
   const [editType, setEditType] = useState<'script' | 'reference'>(file.file_type);
@@ -176,18 +214,20 @@ function FileRow({ file, allFiles, upsertFile, deleteFile, isUpserting }: FileRo
     setExpanded(false);
   };
 
+  const indentPx = indent * 16;
+
   return (
     <div className="rounded-md border border-border bg-background">
       {/* Collapsed row */}
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex items-center gap-2 p-2" style={{ paddingLeft: `${8 + indentPx}px` }}>
         <FileTypeIcon type={file.file_type} />
-        <span className="flex-1 font-mono text-sm text-foreground">{file.filename}</span>
+        <span className="flex-1 font-mono text-sm text-foreground truncate">{label}</span>
         <FileTypeBadge type={file.file_type} />
-        <span className="text-xs text-muted-foreground">{file.content.length.toLocaleString()} chars</span>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{file.content.length.toLocaleString()} chars</span>
         <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setExpanded(!expanded)}>
           <Pencil className="mr-1 h-3 w-3" />
           Edit
-          {expanded ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
+          {expanded ? <ChevronDown className="ml-1 h-3 w-3" /> : <ChevronRight className="ml-1 h-3 w-3" />}
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -220,7 +260,7 @@ function FileRow({ file, allFiles, upsertFile, deleteFile, isUpserting }: FileRo
         <div className="border-t border-border p-3 space-y-3 bg-muted/10">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Filename</Label>
+              <Label className="text-xs">Full path</Label>
               <Input
                 value={editFilename}
                 onChange={(e) => handleFilenameChange(e.target.value)}
@@ -267,6 +307,171 @@ function FileRow({ file, allFiles, upsertFile, deleteFile, isUpserting }: FileRo
     </div>
   );
 }
+
+// ── Folder node (collapsible directory) ─────────────────────────────────────
+
+interface FolderNodeProps {
+  name: string;
+  children: Map<string, FileNode>;
+  allFiles: SkillFile[];
+  indent: number;
+  upsertFile: FileRowProps['upsertFile'];
+  deleteFile: FileRowProps['deleteFile'];
+  isUpserting: boolean;
+  defaultOpen?: boolean;
+}
+
+function FolderNode({ name, children, allFiles, indent, upsertFile, deleteFile, isUpserting, defaultOpen = true }: FolderNodeProps) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  const totalFiles = countLeaves(children);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded hover:bg-muted/40 transition-colors"
+        style={{ paddingLeft: `${8 + indent * 16}px` }}
+      >
+        {open
+          ? <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          : <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+        <span className="text-xs font-medium text-muted-foreground">{name}/</span>
+        <span className="text-xs text-muted-foreground/60 ml-1">({totalFiles})</span>
+        {open
+          ? <ChevronDown className="h-3 w-3 ml-auto text-muted-foreground/50" />
+          : <ChevronRight className="h-3 w-3 ml-auto text-muted-foreground/50" />}
+      </button>
+
+      {open && (
+        <div className="space-y-1 mt-1">
+          <TreeNodes
+            nodes={children}
+            allFiles={allFiles}
+            indent={indent + 1}
+            upsertFile={upsertFile}
+            deleteFile={deleteFile}
+            isUpserting={isUpserting}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function countLeaves(nodes: Map<string, FileNode>): number {
+  let count = 0;
+  for (const node of nodes.values()) {
+    if (node.file) count++;
+    else if (node.children) count += countLeaves(node.children);
+  }
+  return count;
+}
+
+// ── Tree renderer ────────────────────────────────────────────────────────────
+
+interface TreeNodesProps {
+  nodes: Map<string, FileNode>;
+  allFiles: SkillFile[];
+  indent: number;
+  upsertFile: FileRowProps['upsertFile'];
+  deleteFile: FileRowProps['deleteFile'];
+  isUpserting: boolean;
+}
+
+function TreeNodes({ nodes, allFiles, indent, upsertFile, deleteFile, isUpserting }: TreeNodesProps) {
+  const sorted = [...nodes.entries()].sort(([, a], [, b]) => {
+    // directories first, then files
+    const aDir = !a.file;
+    const bDir = !b.file;
+    if (aDir !== bDir) return aDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return (
+    <>
+      {sorted.map(([key, node]) => {
+        if (node.file) {
+          return (
+            <FileRow
+              key={key}
+              file={node.file}
+              allFiles={allFiles}
+              label={node.name}
+              indent={indent}
+              upsertFile={upsertFile}
+              deleteFile={deleteFile}
+              isUpserting={isUpserting}
+            />
+          );
+        }
+        return (
+          <FolderNode
+            key={key}
+            name={node.name}
+            children={node.children!}
+            allFiles={allFiles}
+            indent={indent}
+            upsertFile={upsertFile}
+            deleteFile={deleteFile}
+            isUpserting={isUpserting}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ── Section (Scripts / Reference files) with collapsible header ──────────────
+
+interface SectionProps {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  files: SkillFile[];
+  allFiles: SkillFile[];
+  upsertFile: FileRowProps['upsertFile'];
+  deleteFile: FileRowProps['deleteFile'];
+  isUpserting: boolean;
+  defaultOpen?: boolean;
+}
+
+function Section({ icon, label, count, files, allFiles, upsertFile, deleteFile, isUpserting, defaultOpen = true }: SectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const tree = buildTree(files);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="flex items-center gap-2 w-full text-left group">
+          <div className="flex items-center gap-2 flex-1">
+            {icon}
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {label} ({count})
+            </span>
+          </div>
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 space-y-1">
+          <TreeNodes
+            nodes={tree}
+            allFiles={allFiles}
+            indent={0}
+            upsertFile={upsertFile}
+            deleteFile={deleteFile}
+            isUpserting={isUpserting}
+          />
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
 
 export function SkillFiles({ promptId }: SkillFilesProps) {
   const { files, upsertFile, deleteFile, isLoading, isUpserting, isDeleting } = useSkillFiles(promptId);
@@ -315,50 +520,30 @@ export function SkillFiles({ promptId }: SkillFilesProps) {
 
         {/* Scripts section */}
         {scripts.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Scripts ({scripts.length})
-              </span>
-            </div>
-            <div className="space-y-2">
-              {scripts.map((file) => (
-                <FileRow
-                  key={file.id}
-                  file={file}
-                  allFiles={files}
-                  upsertFile={upsertFile}
-                  deleteFile={deleteFile}
-                  isUpserting={isUpserting || isDeleting}
-                />
-              ))}
-            </div>
-          </div>
+          <Section
+            icon={<Terminal className="h-4 w-4 text-muted-foreground" />}
+            label="Scripts"
+            count={scripts.length}
+            files={scripts}
+            allFiles={files}
+            upsertFile={upsertFile}
+            deleteFile={deleteFile}
+            isUpserting={isUpserting || isDeleting}
+          />
         )}
 
         {/* Reference files section */}
         {references.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Reference files ({references.length})
-              </span>
-            </div>
-            <div className="space-y-2">
-              {references.map((file) => (
-                <FileRow
-                  key={file.id}
-                  file={file}
-                  allFiles={files}
-                  upsertFile={upsertFile}
-                  deleteFile={deleteFile}
-                  isUpserting={isUpserting || isDeleting}
-                />
-              ))}
-            </div>
-          </div>
+          <Section
+            icon={<FileText className="h-4 w-4 text-muted-foreground" />}
+            label="Reference files"
+            count={references.length}
+            files={references}
+            allFiles={files}
+            upsertFile={upsertFile}
+            deleteFile={deleteFile}
+            isUpserting={isUpserting || isDeleting}
+          />
         )}
 
         {/* Empty state */}
