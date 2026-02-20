@@ -56,7 +56,15 @@ Deno.serve(async (req) => {
     const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`;
     console.log('Fetching tree:', treeUrl);
 
-    const treeRes = await fetch(treeUrl, { headers });
+    let treeRes = await fetch(treeUrl, { headers });
+
+    // If 401, the token is invalid — retry without auth (works for public repos)
+    if (treeRes.status === 401 && token) {
+      console.warn('GitHub token returned 401, retrying without auth');
+      delete headers['Authorization'];
+      treeRes = await fetch(treeUrl, { headers });
+    }
+
     if (!treeRes.ok) {
       const err = await treeRes.text();
       console.error('GitHub tree error:', err);
