@@ -34,9 +34,21 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
 
-  const SQL = await initSqlJs({
-    locateFile: (file) => `/${file}`,
-  });
+  // Try loading WASM from local path first. In production the service worker can
+  // interfere with same-origin WASM fetches (wrong MIME type), so we fall back to
+  // the jsDelivr CDN which is cross-origin and therefore bypasses the SW entirely.
+  let SQL;
+  try {
+    SQL = await initSqlJs({
+      locateFile: (file) => `/${file}`,
+    });
+  } catch {
+    console.warn('Local WASM load failed, falling back to CDN…');
+    SQL = await initSqlJs({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`,
+    });
+  }
 
   const savedData = await loadFromIndexedDB();
   

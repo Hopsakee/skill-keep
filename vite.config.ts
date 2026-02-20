@@ -47,15 +47,6 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'wasm-cache',
-            },
-          },
-        ],
       },
     }),
   ].filter(Boolean),
