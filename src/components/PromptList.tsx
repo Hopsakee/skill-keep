@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Search, ArrowUpDown, Clock, SortAsc, Copy, Download, X, CheckSquare } from 'lucide-react';
+import { Plus, Search, ArrowUpDown, Clock, SortAsc, Copy, Download, X, CheckSquare, FolderDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -15,11 +15,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { downloadSkillsAsZip } from '@/utils/skillExport';
+import { SkillImportDialog } from '@/components/SkillImportDialog';
 
 interface PromptListProps {
   selectedPromptId: string | null;
   onSelectPrompt: (prompt: Prompt) => void;
   onNewPrompt: () => void;
+  onImportedPrompt?: (promptId: string) => void;
 }
 
 export interface PromptListRef {
@@ -32,7 +34,7 @@ export interface PromptListRef {
 type SortOption = 'updated' | 'alphabetical';
 
 export const PromptList = forwardRef<PromptListRef, PromptListProps>(function PromptList(
-  { selectedPromptId, onSelectPrompt, onNewPrompt },
+  { selectedPromptId, onSelectPrompt, onNewPrompt, onImportedPrompt },
   ref
 ) {
   const { prompts, isLoading } = usePrompts();
@@ -43,6 +45,7 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
   const [selectMode, setSelectMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const copyPromptToClipboard = async (prompt: Prompt, e?: React.MouseEvent) => {
@@ -207,6 +210,14 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
               <Button
                 size="sm"
                 variant="ghost"
+                onClick={() => setShowImport(true)}
+                title="Import skill"
+              >
+                <FolderDown className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => setSelectMode(true)}
                 title="Select skills to export"
               >
@@ -357,6 +368,16 @@ export const PromptList = forwardRef<PromptListRef, PromptListProps>(function Pr
           Click skills to select • ZIP preserves SKILL.md + bundled files
         </div>
       )}
+
+      <SkillImportDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onImported={(id) => {
+          const imported = prompts.find((p) => p.id === id);
+          if (imported) onSelectPrompt(imported);
+          if (onImportedPrompt) onImportedPrompt(id);
+        }}
+      />
     </div>
   );
 });
