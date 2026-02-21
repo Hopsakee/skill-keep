@@ -1,6 +1,6 @@
 import initSqlJs, { Database } from 'sql.js';
 import { openDB, IDBPDatabase } from 'idb';
-import { DB_NAME, STORE_NAME, DB_KEY, DEFAULT_TAG_COLOR } from '@/constants';
+import { DB_NAME, LEGACY_DB_NAME, STORE_NAME, DB_KEY, DEFAULT_TAG_COLOR } from '@/constants';
 
 let db: Database | null = null;
 let idbConnection: IDBPDatabase | null = null;
@@ -31,8 +31,36 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
   return data || null;
 }
 
+async function migrateFromLegacyIDB(): Promise<void> {
+  try {
+    const legacyIdb = await openDB(LEGACY_DB_NAME, 1);
+    const data = await legacyIdb.get(STORE_NAME, DB_KEY);
+    legacyIdb.close();
+
+    if (data) {
+      const newIdb = await getIDB();
+      const existing = await newIdb.get(STORE_NAME, DB_KEY);
+      if (!existing) {
+        await newIdb.put(STORE_NAME, data, DB_KEY);
+      }
+      // Delete legacy database
+      const deleteReq = indexedDB.deleteDatabase(LEGACY_DB_NAME);
+      await new Promise<void>((resolve) => {
+        deleteReq.onsuccess = () => resolve();
+        deleteReq.onerror = () => resolve();
+        deleteReq.onblocked = () => resolve();
+      });
+    }
+  } catch {
+    // Legacy DB doesn't exist or can't be opened — nothing to migrate
+  }
+}
+
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
+
+  // Migrate data from old 'prompt-vault-db' to new 'skill-keep-db'
+  await migrateFromLegacyIDB();
 
   const wasmUrl = file =>
     file.endsWith('.wasm')
