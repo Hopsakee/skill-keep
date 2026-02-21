@@ -1,7 +1,8 @@
 // Application constants
 
 // Database
-export const DB_NAME = 'prompt-vault-db';
+export const DB_NAME = 'skill-keep-db';
+export const LEGACY_DB_NAME = 'prompt-vault-db';
 export const STORE_NAME = 'sqlite-store';
 export const DB_KEY = 'database';
 
