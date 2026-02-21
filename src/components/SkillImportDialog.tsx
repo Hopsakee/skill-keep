@@ -57,7 +57,7 @@ export function SkillImportDialog({ open, onOpenChange, onImported }: SkillImpor
       }
 
       setImportedCount(skills.length);
-      queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['skills'] });
       toast({ title: `${skills.length} skill${skills.length > 1 ? 's' : ''} imported` });
 
       if (lastId && onImported) onImported(lastId);
@@ -85,12 +85,12 @@ export function SkillImportDialog({ open, onOpenChange, onImported }: SkillImpor
       }
 
       const skill = parseSkillFromGitHub(data.skillTitle, data.files);
-      const promptId = await saveSkillToDatabase(skill);
+      const skillId = await saveSkillToDatabase(skill);
 
-      queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['skills'] });
       toast({ title: `Skill "${skill.title}" imported`, description: `${data.files.length} file(s) imported` });
 
-      if (onImported) onImported(promptId);
+      if (onImported) onImported(skillId);
       setTimeout(() => onOpenChange(false), 800);
     } catch (e) {
       console.error(e);

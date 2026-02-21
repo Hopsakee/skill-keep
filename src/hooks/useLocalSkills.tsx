@@ -17,11 +17,6 @@ import type {
 export type { Skill, SkillVersion, Tag, ChatMessage, ChatExample, VersionAnnotation, SkillFile };
 export type SkillUsage = SkillUsageData;
 
-// Backward compat aliases
-export type Prompt = Skill;
-export type PromptVersion = SkillVersion;
-export type PromptUsage = SkillUsageData;
-
 export function useSkills() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -177,7 +172,7 @@ export function useSkills() {
         [versionId, skillId, content, maxVersion + 1, 1, now]
       );
 
-      // Copy user prompts from previous version's chat examples
+      // Copy user inputs from previous version's chat examples
       if (previousVersionId) {
         const chatExamplesResult = db.exec(
           'SELECT messages FROM chat_examples WHERE version_id = ?',
@@ -291,16 +286,9 @@ export function useSkills() {
     deleteSkill: deleteSkillMutation.mutateAsync,
     isCreating: createSkillMutation.isPending,
     isUpdating: updateSkillMutation.isPending,
-    // Backward compat aliases
-    prompts: skillsQuery.data || [],
-    createPrompt: createSkillMutation.mutateAsync,
-    updatePrompt: updateSkillMutation.mutateAsync,
-    deletePrompt: deleteSkillMutation.mutateAsync,
   };
 }
 
-// Backward compat alias
-export const usePrompts = useSkills;
 
 export function useSkillVersions(skillId: string | undefined) {
   return useQuery({
@@ -330,8 +318,6 @@ export function useSkillVersions(skillId: string | undefined) {
   });
 }
 
-// Backward compat alias
-export const usePromptVersions = useSkillVersions;
 
 export function useRestoreVersion() {
   const queryClient = useQueryClient();
@@ -646,8 +632,6 @@ export function useSkillUsage(skillId: string | undefined) {
   };
 }
 
-// Backward compat alias
-export const usePromptUsage = useSkillUsage;
 
 export function useAllVersionAnnotations(skillId: string | undefined) {
   return useQuery({

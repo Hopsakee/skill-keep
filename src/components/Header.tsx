@@ -35,7 +35,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenTagManagement }:
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
         <div className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
-          <span className="text-xl font-semibold tracking-tight">Skills Vault</span>
+          <span className="text-xl font-semibold tracking-tight">Skill Keep</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Local</span>
         </div>
 
@@ -57,24 +57,24 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenTagManagement }:
                   ) : (
                     <Github className="h-4 w-4" />
                   )}
-                  {isConnected ? 'Sync' : 'GitHub koppelen'}
+                  {isConnected ? 'Sync' : 'Connect GitHub'}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 {isConnected
-                  ? `Synchroniseer met ${config.owner}/${config.repo}`
-                  : 'Koppel een GitHub repository'}
+                  ? `Sync with ${config.owner}/${config.repo}`
+                  : 'Connect a GitHub repository'}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
-          <Button variant="ghost" size="icon" onClick={onOpenTagManagement} title="Tag beheer (Ctrl+T)">
+          <Button variant="ghost" size="icon" onClick={onOpenTagManagement} title="Tag management (Ctrl+T)">
             <Tags className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onOpenShortcuts} title="Sneltoetsen (?)">
+          <Button variant="ghost" size="icon" onClick={onOpenShortcuts} title="Keyboard shortcuts (?)">
             <Keyboard className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onOpenSettings} title="Instellingen">
+          <Button variant="ghost" size="icon" onClick={onOpenSettings} title="Settings">
             <Settings className="h-4 w-4" />
           </Button>
         </div>

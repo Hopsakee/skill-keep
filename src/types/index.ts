@@ -11,8 +11,6 @@ export interface Skill {
   active_version?: SkillVersion;
 }
 
-// Backward compatibility alias
-export type Prompt = Skill;
 
 export interface SkillVersion {
   id: string;
@@ -23,8 +21,6 @@ export interface SkillVersion {
   created_at: string;
 }
 
-// Backward compatibility alias
-export type PromptVersion = SkillVersion;
 
 export interface Tag {
   id: string;
@@ -57,8 +53,6 @@ export interface SkillUsageData {
   explanation: string | null;
 }
 
-// Backward compatibility alias
-export type PromptUsageData = SkillUsageData;
 
 // Bundled skill files (Level 3 resources)
 export interface SkillFile {
@@ -94,8 +88,6 @@ export interface SkillExportData {
   version_number: number;
 }
 
-// Backward compatibility alias
-export type PromptExportData = SkillExportData;
 
 export interface ParsedMarkdown {
   title: string;
