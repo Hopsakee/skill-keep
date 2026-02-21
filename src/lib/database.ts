@@ -34,9 +34,6 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
 
-  // sql.js may request different filenames (e.g. sql-wasm-browser.wasm) depending
-  // on the bundle variant. We always point to the canonical sql-wasm.wasm file.
-  // Using the jsDelivr CDN avoids service-worker / MIME-type issues in production.
   const wasmUrl = file =>
     file.endsWith('.wasm')
       ? 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm'
@@ -60,7 +57,7 @@ function createTables(): void {
   if (!db) return;
 
   db.run(`
-    CREATE TABLE IF NOT EXISTS prompts (
+    CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
@@ -71,14 +68,14 @@ function createTables(): void {
   `);
 
   db.run(`
-    CREATE TABLE IF NOT EXISTS prompt_versions (
+    CREATE TABLE IF NOT EXISTS skill_versions (
       id TEXT PRIMARY KEY,
-      prompt_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
       content TEXT NOT NULL,
       version_number INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
+      FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
     )
   `);
 
@@ -92,13 +89,13 @@ function createTables(): void {
   `);
 
   db.run(`
-    CREATE TABLE IF NOT EXISTS prompt_tags (
+    CREATE TABLE IF NOT EXISTS skill_tags (
       id TEXT PRIMARY KEY,
-      prompt_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
       tag_id TEXT NOT NULL,
-      FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
+      FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
       FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
-      UNIQUE(prompt_id, tag_id)
+      UNIQUE(skill_id, tag_id)
     )
   `);
 
@@ -109,7 +106,7 @@ function createTables(): void {
       note TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (version_id) REFERENCES prompt_versions(id) ON DELETE CASCADE
+      FOREIGN KEY (version_id) REFERENCES skill_versions(id) ON DELETE CASCADE
     )
   `);
 
@@ -120,18 +117,18 @@ function createTables(): void {
       messages TEXT NOT NULL DEFAULT '[]',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (version_id) REFERENCES prompt_versions(id) ON DELETE CASCADE
+      FOREIGN KEY (version_id) REFERENCES skill_versions(id) ON DELETE CASCADE
     )
   `);
 
   db.run(`
-    CREATE TABLE IF NOT EXISTS prompt_usage (
+    CREATE TABLE IF NOT EXISTS skill_usage (
       id TEXT PRIMARY KEY,
-      prompt_id TEXT NOT NULL UNIQUE,
+      skill_id TEXT NOT NULL UNIQUE,
       explanation TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
+      FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
     )
   `);
 
@@ -145,14 +142,14 @@ function createTables(): void {
   db.run(`
     CREATE TABLE IF NOT EXISTS skill_files (
       id TEXT PRIMARY KEY,
-      prompt_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL,
       filename TEXT NOT NULL,
       file_type TEXT NOT NULL DEFAULT 'reference',
       content TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
-      UNIQUE(prompt_id, filename)
+      FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+      UNIQUE(skill_id, filename)
     )
   `);
 
@@ -175,11 +172,9 @@ export function generateId(): string {
 }
 
 export async function clearDatabase(): Promise<void> {
-  // Clear IndexedDB
   const idb = await getIDB();
   await idb.delete(STORE_NAME, DB_KEY);
   
-  // Reset in-memory database
   if (db) {
     db.close();
     db = null;
@@ -189,46 +184,88 @@ export async function clearDatabase(): Promise<void> {
 export async function exportDatabaseAsJson(): Promise<string> {
   const database = await getDatabase();
   
-  const prompts = database.exec('SELECT * FROM prompts ORDER BY updated_at DESC');
-  const versions = database.exec('SELECT * FROM prompt_versions');
+  const skills = database.exec('SELECT * FROM skills ORDER BY updated_at DESC');
+  const versions = database.exec('SELECT * FROM skill_versions');
   const tags = database.exec('SELECT * FROM tags');
-  const promptTags = database.exec('SELECT * FROM prompt_tags');
+  const skillTags = database.exec('SELECT * FROM skill_tags');
   const annotations = database.exec('SELECT * FROM version_annotations');
   const chatExamples = database.exec('SELECT * FROM chat_examples');
-  const promptUsage = database.exec('SELECT * FROM prompt_usage');
+  const skillUsage = database.exec('SELECT * FROM skill_usage');
   const skillFiles = database.exec('SELECT * FROM skill_files ORDER BY file_type, filename');
 
   return JSON.stringify({
     version: 1,
     exportedAt: new Date().toISOString(),
-    prompts: prompts[0]?.values || [],
-    prompt_versions: versions[0]?.values || [],
+    skills: skills[0]?.values || [],
+    skill_versions: versions[0]?.values || [],
     tags: tags[0]?.values || [],
-    prompt_tags: promptTags[0]?.values || [],
+    skill_tags: skillTags[0]?.values || [],
     version_annotations: annotations[0]?.values || [],
     chat_examples: chatExamples[0]?.values || [],
-    prompt_usage: promptUsage[0]?.values || [],
+    skill_usage: skillUsage[0]?.values || [],
     skill_files: skillFiles[0]?.values || [],
   }, null, 2);
 }
 
 export async function migrateDatabase(): Promise<void> {
   const database = await getDatabase();
-  
-  // Check if prompt_usage table exists
+
+  // ── Migration: rename old "prompt" tables to "skill" tables ──────────
+  const oldTables = [
+    { old: 'prompts', new: 'skills' },
+    { old: 'prompt_versions', new: 'skill_versions' },
+    { old: 'prompt_tags', new: 'skill_tags' },
+    { old: 'prompt_usage', new: 'skill_usage' },
+  ];
+
+  for (const { old: oldName, new: newName } of oldTables) {
+    const oldExists = database.exec(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='${oldName}'`
+    );
+    const newExists = database.exec(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='${newName}'`
+    );
+    if (oldExists[0]?.values?.length && !newExists[0]?.values?.length) {
+      database.run(`ALTER TABLE ${oldName} RENAME TO ${newName}`);
+    }
+  }
+
+  // Rename prompt_id columns to skill_id where needed (SQLite >=3.25 supports RENAME COLUMN)
+  // We try it; if the column doesn't exist we skip silently.
+  const columnsToRename = [
+    { table: 'skill_versions', old: 'prompt_id', new: 'skill_id' },
+    { table: 'skill_tags', old: 'prompt_id', new: 'skill_id' },
+    { table: 'skill_usage', old: 'prompt_id', new: 'skill_id' },
+    { table: 'skill_files', old: 'prompt_id', new: 'skill_id' },
+  ];
+
+  for (const { table, old: oldCol, new: newCol } of columnsToRename) {
+    try {
+      // Check if old column exists
+      database.exec(`SELECT ${oldCol} FROM ${table} LIMIT 0`);
+      // Old column exists — rename it
+      database.run(`ALTER TABLE ${table} RENAME COLUMN ${oldCol} TO ${newCol}`);
+    } catch {
+      // Column doesn't exist (already renamed or table doesn't exist yet) — skip
+    }
+  }
+
+  await saveToIndexedDB();
+
+  // Check if skill_usage table exists
   const tableCheck = database.exec(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_usage'"
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='skill_usage'"
   );
   
   if (!tableCheck[0]?.values?.length) {
     database.run(`
-      CREATE TABLE IF NOT EXISTS prompt_usage (
+      CREATE TABLE IF NOT EXISTS skill_usage (
         id TEXT PRIMARY KEY,
-        prompt_id TEXT NOT NULL UNIQUE,
+        skill_id TEXT NOT NULL UNIQUE,
         explanation TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
+        FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
       )
     `);
     await saveToIndexedDB();
@@ -250,35 +287,35 @@ export async function migrateDatabase(): Promise<void> {
     database.run(`
       CREATE TABLE IF NOT EXISTS skill_files (
         id TEXT PRIMARY KEY,
-        prompt_id TEXT NOT NULL,
+        skill_id TEXT NOT NULL,
         filename TEXT NOT NULL,
         file_type TEXT NOT NULL DEFAULT 'reference',
         content TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
-        UNIQUE(prompt_id, filename)
+        FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+        UNIQUE(skill_id, filename)
       )
     `);
     await saveToIndexedDB();
   }
 
-  // Add description and license columns to prompts if they don't exist
+  // Add description and license columns to skills if they don't exist
   try {
-    database.exec("SELECT description FROM prompts LIMIT 1");
+    database.exec("SELECT description FROM skills LIMIT 1");
   } catch {
-    database.run("ALTER TABLE prompts ADD COLUMN description TEXT DEFAULT ''");
+    database.run("ALTER TABLE skills ADD COLUMN description TEXT DEFAULT ''");
     await saveToIndexedDB();
   }
   try {
-    database.exec("SELECT license FROM prompts LIMIT 1");
+    database.exec("SELECT license FROM skills LIMIT 1");
   } catch {
-    database.run("ALTER TABLE prompts ADD COLUMN license TEXT DEFAULT ''");
+    database.run("ALTER TABLE skills ADD COLUMN license TEXT DEFAULT ''");
     await saveToIndexedDB();
   }
 }
 
-interface MarkdownPrompt {
+interface MarkdownSkill {
   title: string;
   content: string;
   tags: string[];
@@ -286,7 +323,7 @@ interface MarkdownPrompt {
   updated_at: string;
 }
 
-function parseMarkdownFrontmatter(markdown: string): MarkdownPrompt | null {
+function parseMarkdownFrontmatter(markdown: string): MarkdownSkill | null {
   const frontmatterMatch = markdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!frontmatterMatch) return null;
 
@@ -314,7 +351,7 @@ function parseMarkdownFrontmatter(markdown: string): MarkdownPrompt | null {
   };
 }
 
-export async function importMarkdownPrompts(markdownFiles: Array<{ name: string; content: string }>): Promise<number> {
+export async function importMarkdownSkills(markdownFiles: Array<{ name: string; content: string }>): Promise<number> {
   const database = await getDatabase();
   let imported = 0;
 
@@ -322,18 +359,18 @@ export async function importMarkdownPrompts(markdownFiles: Array<{ name: string;
     const parsed = parseMarkdownFrontmatter(file.content);
     if (!parsed) continue;
 
-    const promptId = generateId();
+    const skillId = generateId();
     const versionId = generateId();
     const now = new Date().toISOString();
 
     database.run(
-      'INSERT INTO prompts (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
-      [promptId, parsed.title, parsed.created_at || now, parsed.updated_at || now]
+      'INSERT INTO skills (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      [skillId, parsed.title, parsed.created_at || now, parsed.updated_at || now]
     );
 
     database.run(
-      'INSERT INTO prompt_versions (id, prompt_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [versionId, promptId, parsed.content, 1, 1, parsed.created_at || now]
+      'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [versionId, skillId, parsed.content, 1, 1, parsed.created_at || now]
     );
 
     for (const tagName of parsed.tags) {
@@ -347,9 +384,9 @@ export async function importMarkdownPrompts(markdownFiles: Array<{ name: string;
         database.run('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)', [tagId, tagName, now]);
       }
 
-      database.run('INSERT OR IGNORE INTO prompt_tags (id, prompt_id, tag_id) VALUES (?, ?, ?)', [
+      database.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [
         generateId(),
-        promptId,
+        skillId,
         tagId,
       ]);
     }

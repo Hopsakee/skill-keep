@@ -7,7 +7,7 @@ export const DB_KEY = 'database';
 
 // GitHub sync
 export const GITHUB_CONFIG_KEY = 'github-config';
-export const PROMPTS_FOLDER = 'prompts';
+export const SKILLS_FOLDER = 'skills';
 
 // Tag colors palette
 export const TAG_COLORS = [

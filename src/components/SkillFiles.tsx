@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSkillFiles, SkillFile } from '@/hooks/useLocalPrompts';
+import { useSkillFiles, SkillFile } from '@/hooks/useLocalSkills';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Terminal, FileText, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
 interface SkillFilesProps {
-  promptId: string;
+  skillId: string;
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ interface AddFileFormProps {
   promptId: string;
   existingFiles: SkillFile[];
   onClose: () => void;
-  upsertFile: (args: { promptId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
+  upsertFile: (args: { skillId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
   isUpserting: boolean;
 }
 
@@ -197,7 +197,7 @@ function FileRow({ file, allFiles, label, indent, upsertFile, deleteFile, isUpse
     const err = validateFilename(editFilename, allFiles, file.id);
     if (err) { setFilenameError(err); return; }
     await upsertFile({
-      promptId: file.prompt_id,
+      promptId: file.skill_id,
       filename: editFilename.trim(),
       file_type: editType,
       content: editContent,
@@ -473,8 +473,8 @@ function Section({ icon, label, count, files, allFiles, upsertFile, deleteFile, 
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function SkillFiles({ promptId }: SkillFilesProps) {
-  const { files, upsertFile, deleteFile, isLoading, isUpserting, isDeleting } = useSkillFiles(promptId);
+export function SkillFiles({ skillId }: SkillFilesProps) {
+  const { files, upsertFile, deleteFile, isLoading, isUpserting, isDeleting } = useSkillFiles(skillId);
   const [showAddForm, setShowAddForm] = useState(false);
 
   const scripts = files.filter((f) => f.file_type === 'script');

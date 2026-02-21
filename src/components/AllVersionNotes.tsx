@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAllVersionAnnotations, useVersionAnnotations } from '@/hooks/useLocalPrompts';
+import { useAllVersionAnnotations, useVersionAnnotations } from '@/hooks/useLocalSkills';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,12 +8,12 @@ import { Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AllVersionNotesProps {
-  promptId: string;
+  skillId: string;
   activeVersionId: string;
 }
 
-export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesProps) {
-  const { data: allAnnotations, isLoading: isLoadingAll, refetch } = useAllVersionAnnotations(promptId);
+export function AllVersionNotes({ skillId, activeVersionId }: AllVersionNotesProps) {
+  const { data: allAnnotations, isLoading: isLoadingAll, refetch } = useAllVersionAnnotations(skillId);
   const { annotation: currentAnnotation, upsertAnnotation } = useVersionAnnotations(activeVersionId);
   const [currentNote, setCurrentNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -26,18 +26,17 @@ export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesPr
     setIsSaving(true);
     try {
       await upsertAnnotation({ versionId: activeVersionId, note: currentNote });
-      // Refetch to update the list immediately
       await refetch();
-      toast.success('Notitie opgeslagen');
+      toast.success('Note saved');
     } catch {
-      toast.error('Opslaan mislukt');
+      toast.error('Save failed');
     } finally {
       setIsSaving(false);
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('nl-NL', {
+    return new Date(dateString).toLocaleString('en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -47,22 +46,21 @@ export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesPr
   };
 
   if (isLoadingAll) {
-    return <div className="p-4 text-muted-foreground">Laden...</div>;
+    return <div className="p-4 text-muted-foreground">Loading...</div>;
   }
 
-  // Filter out annotations that have no note content
   const annotationsWithContent = allAnnotations?.filter(a => a.note && a.note.trim()) || [];
 
   return (
     <div className="flex h-full flex-col">
       {/* Current version note editor */}
       <div className="border-b border-border p-4">
-        <h3 className="mb-2 text-sm font-semibold">Notitie huidige versie</h3>
+        <h3 className="mb-2 text-sm font-semibold">Current version note</h3>
         <p className="mb-3 text-xs text-muted-foreground">
-          Voeg een notitie toe voor de actieve versie. Eerdere versie-notities zie je hieronder.
+          Add a note for the active version. Previous version notes are shown below.
         </p>
         <Textarea
-          placeholder="Schrijf je notitie voor deze versie..."
+          placeholder="Write your note for this version..."
           value={currentNote}
           onChange={(e) => setCurrentNote(e.target.value)}
           className="min-h-[100px] resize-none"
@@ -70,7 +68,7 @@ export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesPr
         <div className="mt-3 flex justify-end">
           <Button onClick={handleSave} disabled={isSaving} size="sm">
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Opslaan...' : 'Opslaan'}
+            {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>
@@ -78,13 +76,13 @@ export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesPr
       {/* Previous version notes */}
       <div className="flex-1 overflow-hidden">
         <div className="border-b border-border px-4 py-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">Vorige versie-notities</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">Previous version notes</h3>
         </div>
         <ScrollArea className="h-[calc(100%-40px)]">
           <div className="p-4">
             {annotationsWithContent.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground">
-                Nog geen notities bij eerdere versies.
+                No notes on previous versions yet.
               </p>
             ) : (
               <div className="space-y-4">
@@ -92,7 +90,7 @@ export function AllVersionNotes({ promptId, activeVersionId }: AllVersionNotesPr
                   <div key={annotation.id}>
                     <div className="mb-2 flex items-center justify-between">
                       <h4 className="text-sm font-semibold">
-                        Versie {annotation.version_number}
+                        Version {annotation.version_number}
                       </h4>
                       {annotation.created_at && (
                         <span className="text-xs text-muted-foreground">
