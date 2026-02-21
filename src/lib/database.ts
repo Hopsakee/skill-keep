@@ -34,14 +34,15 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
 export async function initDatabase(): Promise<Database> {
   if (db) return db;
 
-  // Use the jsDelivr CDN as the primary source for the WASM file.
-  // In production, service workers and hosting configs can interfere with
-  // same-origin WASM fetches (wrong MIME type). The CDN is cross-origin
-  // and therefore bypasses these issues entirely.
-  const SQL = await initSqlJs({
-    locateFile: (file) =>
-      `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`,
-  });
+  // sql.js may request different filenames (e.g. sql-wasm-browser.wasm) depending
+  // on the bundle variant. We always point to the canonical sql-wasm.wasm file.
+  // Using the jsDelivr CDN avoids service-worker / MIME-type issues in production.
+  const wasmUrl = file =>
+    file.endsWith('.wasm')
+      ? 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm'
+      : `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`;
+
+  const SQL = await initSqlJs({ locateFile: wasmUrl });
 
   const savedData = await loadFromIndexedDB();
   
