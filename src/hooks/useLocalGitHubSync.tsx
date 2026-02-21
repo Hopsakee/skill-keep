@@ -16,8 +16,8 @@ interface Repo {
   full_name: string;
 }
 
-// Full prompt data structure for JSON export
-interface PromptFullData {
+// Full skill data structure for JSON export
+interface SkillFullData {
   id: string;
   title: string;
   created_at: string;
@@ -39,17 +39,6 @@ interface PromptFullData {
   }>;
 }
 
-// Simplified data for quick push (only active version)
-interface PromptSimpleData {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-  version_number: number;
-}
-
 interface ParsedMarkdown {
   title: string;
   content: string;
@@ -59,8 +48,8 @@ interface ParsedMarkdown {
 }
 
 const GITHUB_CONFIG_KEY = 'github-config';
-const PROMPTS_LATEST_FOLDER = 'prompts-latest';
-const PROMPTS_DATA_FOLDER = 'prompts-data';
+const SKILLS_LATEST_FOLDER = 'skills-latest';
+const SKILLS_DATA_FOLDER = 'skills-data';
 
 function sanitizeFilename(title: string): string {
   const filename = title
@@ -68,7 +57,7 @@ function sanitizeFilename(title: string): string {
     .replace(/\s+/g, '-')
     .toLowerCase()
     .substring(0, 200);
-  return filename || `prompt-${Date.now()}`;
+  return filename || `skill-${Date.now()}`;
 }
 
 function countWords(text: string): number {
@@ -89,8 +78,8 @@ export function useGitHubSync() {
   const [conflictIndex, setConflictIndex] = useState(0);
   const [conflictResolutions, setConflictResolutions] = useState<Map<string, 'local' | 'remote' | 'both'>>(new Map());
   const [pendingSync, setPendingSync] = useState<{
-    remotePrompts: Map<string, PromptFullData>;
-    localPrompts: Map<string, PromptFullData>;
+    remoteSkills: Map<string, SkillFullData>;
+    localSkills: Map<string, SkillFullData>;
   } | null>(null);
 
   useEffect(() => {
@@ -139,7 +128,7 @@ export function useGitHubSync() {
     try {
       const userRes = await fetch('https://api.github.com/user', { headers: headers(t) });
       if (!userRes.ok) {
-        toast({ variant: 'destructive', title: 'GitHub fout', description: 'Ongeldige token' });
+        toast({ variant: 'destructive', title: 'GitHub error', description: 'Invalid token' });
         return;
       }
       const user = await userRes.json();
@@ -152,7 +141,7 @@ export function useGitHubSync() {
       setRepos(reposList.map((r: any) => ({ name: r.name, full_name: r.full_name })));
     } catch (e) {
       console.error('Failed to fetch repos:', e);
-      toast({ variant: 'destructive', title: 'Fout', description: 'Kon repositories niet ophalen' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch repositories' });
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +157,7 @@ export function useGitHubSync() {
         saveConfig({ owner: '', repo: '', token, connected: false });
         return true;
       }
-      toast({ variant: 'destructive', title: 'Ongeldige token', description: 'Controleer je token' });
+      toast({ variant: 'destructive', title: 'Invalid token', description: 'Check your token' });
       return false;
     } finally {
       setIsLoading(false);
@@ -183,22 +172,22 @@ export function useGitHubSync() {
       const res = await fetch('https://api.github.com/user/repos', {
         method: 'POST',
         headers: { ...headers(config.token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: repoName, description: 'Prompt Vault', private: true, auto_init: true }),
+        body: JSON.stringify({ name: repoName, description: 'Skill Keep', private: true, auto_init: true }),
       });
       const newRepo = await res.json();
 
       if (!res.ok) {
-        toast({ variant: 'destructive', title: 'Fout', description: newRepo.message });
+        toast({ variant: 'destructive', title: 'Error', description: newRepo.message });
         return null;
       }
 
-      toast({ title: 'Repository aangemaakt' });
+      toast({ title: 'Repository created' });
       const [owner, repo] = newRepo.full_name.split('/');
       saveConfig({ owner, repo, token: config.token, connected: true });
       return newRepo.full_name;
     } catch (e) {
       console.error('Failed to create repo:', e);
-      toast({ variant: 'destructive', title: 'Fout', description: 'Kon repository niet aanmaken' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not create repository' });
       return null;
     } finally {
       setIsLoading(false);
@@ -209,7 +198,7 @@ export function useGitHubSync() {
     if (!config?.token) return;
     const [owner, repo] = fullName.split('/');
     saveConfig({ owner, repo, token: config.token, connected: true });
-    toast({ title: 'Repository gekoppeld' });
+    toast({ title: 'Repository connected' });
   };
 
   const disconnect = () => {
@@ -217,23 +206,23 @@ export function useGitHubSync() {
     setUsername(null);
     setRepos([]);
     localStorage.removeItem(GITHUB_CONFIG_KEY);
-    toast({ title: 'GitHub ontkoppeld' });
+    toast({ title: 'GitHub disconnected' });
   };
 
-  // Get all prompts with full data from SQLite
-  const getLocalPromptsFullData = async (): Promise<Map<string, PromptFullData>> => {
+  // Get all skills with full data from SQLite
+  const getLocalSkillsFullData = async (): Promise<Map<string, SkillFullData>> => {
     const db = await getDatabase();
-    const promptsRes = db.exec('SELECT id, title, created_at, updated_at FROM prompts');
-    const versionsRes = db.exec('SELECT id, prompt_id, content, version_number, is_active, created_at FROM prompt_versions ORDER BY version_number ASC');
+    const skillsRes = db.exec('SELECT id, title, created_at, updated_at FROM skills');
+    const versionsRes = db.exec('SELECT id, skill_id, content, version_number, is_active, created_at FROM skill_versions ORDER BY version_number ASC');
     const tagsRes = db.exec('SELECT id, name, color FROM tags');
-    const linksRes = db.exec('SELECT prompt_id, tag_id FROM prompt_tags');
+    const linksRes = db.exec('SELECT skill_id, tag_id FROM skill_tags');
     const annotationsRes = db.exec('SELECT version_id, note FROM version_annotations');
     const chatExamplesRes = db.exec('SELECT version_id, messages FROM chat_examples');
-    const usageRes = db.exec('SELECT prompt_id, explanation FROM prompt_usage');
-    const skillFilesRes = db.exec('SELECT prompt_id, filename, file_type, content FROM skill_files ORDER BY file_type, filename');
+    const usageRes = db.exec('SELECT skill_id, explanation FROM skill_usage');
+    const skillFilesRes = db.exec('SELECT skill_id, filename, file_type, content FROM skill_files ORDER BY file_type, filename');
 
-    const map = new Map<string, PromptFullData>();
-    if (!promptsRes[0]) return map;
+    const map = new Map<string, SkillFullData>();
+    if (!skillsRes[0]) return map;
 
     const versions = versionsRes[0]?.values || [];
     const tags = tagsRes[0]?.values || [];
@@ -243,11 +232,10 @@ export function useGitHubSync() {
     const usageData = usageRes[0]?.values || [];
     const skillFilesData = skillFilesRes[0]?.values || [];
 
-    for (const row of promptsRes[0].values) {
+    for (const row of skillsRes[0].values) {
       const [id, title, created_at, updated_at] = row as string[];
       
-      // Get all versions for this prompt
-      const promptVersions = versions
+      const skillVersions = versions
         .filter((v) => v[1] === id)
         .map((v) => {
           const versionId = v[0] as string;
@@ -276,17 +264,14 @@ export function useGitHubSync() {
           };
         });
 
-      // Get tags with colors
       const tagIds = links.filter((l) => l[0] === id).map((l) => l[1]);
-      const promptTags = tags
+      const skillTags = tags
         .filter((t) => tagIds.includes(t[0]))
         .map((t) => ({ name: t[1] as string, color: (t[2] as string) || DEFAULT_TAG_COLOR }));
 
-      // Get usage explanation
       const usage = usageData.find((u) => u[0] === id);
 
-      // Get skill files
-      const promptSkillFiles = skillFilesData
+      const skillFiles = skillFilesData
         .filter((f) => f[0] === id)
         .map((f) => ({
           filename: f[1] as string,
@@ -294,25 +279,25 @@ export function useGitHubSync() {
           content: f[3] as string,
         }));
 
-      const prompt: PromptFullData = {
+      const skill: SkillFullData = {
         id,
         title,
         created_at,
         updated_at,
-        tags: promptTags,
+        tags: skillTags,
         usage_explanation: usage ? (usage[1] as string | null) : null,
-        skill_files: promptSkillFiles,
-        versions: promptVersions,
+        skill_files: skillFiles,
+        versions: skillVersions,
       };
 
-      map.set(sanitizeFilename(title), prompt);
+      map.set(sanitizeFilename(title), skill);
     }
 
     return map;
   };
 
-  // Fetch remote prompts from GitHub (from prompts-data folder)
-  const getRemotePrompts = async (): Promise<Map<string, PromptFullData> | null> => {
+  // Fetch remote skills from GitHub (from skills-data folder)
+  const getRemoteSkills = async (): Promise<Map<string, SkillFullData> | null> => {
     if (!config?.connected || !config.token) return null;
 
     try {
@@ -324,7 +309,7 @@ export function useGitHubSync() {
       const branch = repoInfo.default_branch || 'main';
 
       const folderRes = await fetch(
-        `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${PROMPTS_DATA_FOLDER}?ref=${branch}`,
+        `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${SKILLS_DATA_FOLDER}?ref=${branch}`,
         { headers: headers(config.token) }
       );
 
@@ -333,14 +318,14 @@ export function useGitHubSync() {
       const files = await folderRes.json();
       const jsonFiles = files.filter((f: any) => f.name.endsWith('.json'));
 
-      const map = new Map<string, PromptFullData>();
+      const map = new Map<string, SkillFullData>();
 
       await Promise.all(
         jsonFiles.map(async (f: any) => {
           const res = await fetch(f.download_url);
           const content = await res.text();
           try {
-            const parsed = JSON.parse(content) as PromptFullData;
+            const parsed = JSON.parse(content) as SkillFullData;
             const key = f.name.replace('.json', '');
             map.set(key, parsed);
           } catch {
@@ -355,14 +340,14 @@ export function useGitHubSync() {
     }
   };
 
-  // Push prompts to GitHub (both folders)
-  const pushToGitHub = async (prompts: PromptFullData[]) => {
+  // Push skills to GitHub (both folders)
+  const pushToGitHub = async (skills: SkillFullData[]) => {
     if (!config?.connected || !config.token) return false;
 
     const repoRes = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}`, {
       headers: headers(config.token),
     });
-    if (!repoRes.ok) throw new Error('Repository niet toegankelijk');
+    if (!repoRes.ok) throw new Error('Repository not accessible');
     const repoInfo = await repoRes.json();
     const branch = repoInfo.default_branch || 'main';
 
@@ -373,7 +358,7 @@ export function useGitHubSync() {
 
     if (!refRes.ok) {
       // Initialize empty repo
-      const readme = btoa('# Prompt Vault\n\nPrompts synced from Prompt Vault.\n\n- `prompts-latest/`: Raw prompt content for easy usage\n- `prompts-data/`: Full prompt data with all versions and metadata');
+      const readme = btoa('# Skill Keep\n\nSkills synced from Skill Keep.\n\n- `skills-latest/`: Raw skill content for easy usage\n- `skills-data/`: Full skill data with all versions and metadata');
       const blobRes = await fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs`, {
         method: 'POST',
         headers: { ...headers(config.token), 'Content-Type': 'application/json' },
@@ -418,15 +403,15 @@ export function useGitHubSync() {
 
     // Create blobs for both folders — directory per skill with SKILL.md + bundled files
     const tree = await Promise.all(
-      prompts.flatMap((p) => {
-        const filename = sanitizeFilename(p.title);
-        const activeVersion = p.versions.find((v) => v.is_active) || p.versions[p.versions.length - 1];
+      skills.flatMap((s) => {
+        const filename = sanitizeFilename(s.title);
+        const activeVersion = s.versions.find((v) => v.is_active) || s.versions[s.versions.length - 1];
         
         // SKILL.md content (raw markdown body)
         const skillMdContent = btoa(unescape(encodeURIComponent(activeVersion?.content || '')));
         
         // Full JSON data
-        const jsonData = btoa(unescape(encodeURIComponent(JSON.stringify(p, null, 2))));
+        const jsonData = btoa(unescape(encodeURIComponent(JSON.stringify(s, null, 2))));
 
         const entries: Promise<{ path: string; mode: '100644'; type: 'blob'; sha: string }>[] = [
           // skills-latest/<name>/SKILL.md
@@ -437,7 +422,7 @@ export function useGitHubSync() {
           })
             .then((res) => res.json())
             .then((blob) => ({
-              path: `${PROMPTS_LATEST_FOLDER}/${filename}/SKILL.md`,
+              path: `${SKILLS_LATEST_FOLDER}/${filename}/SKILL.md`,
               mode: '100644' as const,
               type: 'blob' as const,
               sha: blob.sha,
@@ -450,7 +435,7 @@ export function useGitHubSync() {
           })
             .then((res) => res.json())
             .then((blob) => ({
-              path: `${PROMPTS_DATA_FOLDER}/${filename}.json`,
+              path: `${SKILLS_DATA_FOLDER}/${filename}.json`,
               mode: '100644' as const,
               type: 'blob' as const,
               sha: blob.sha,
@@ -458,7 +443,7 @@ export function useGitHubSync() {
         ];
 
         // Add bundled skill files alongside SKILL.md
-        for (const skillFile of (p.skill_files || [])) {
+        for (const skillFile of (s.skill_files || [])) {
           const fileContent = btoa(unescape(encodeURIComponent(skillFile.content)));
           entries.push(
             fetch(`https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs`, {
@@ -468,7 +453,7 @@ export function useGitHubSync() {
             })
               .then((res) => res.json())
               .then((blob) => ({
-                path: `${PROMPTS_LATEST_FOLDER}/${filename}/${skillFile.filename}`,
+                path: `${SKILLS_LATEST_FOLDER}/${filename}/${skillFile.filename}`,
                 mode: '100644' as const,
                 type: 'blob' as const,
                 sha: blob.sha,
@@ -491,7 +476,7 @@ export function useGitHubSync() {
       method: 'POST',
       headers: { ...headers(config.token), 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: `Sync ${prompts.length} prompts - ${new Date().toISOString()}`,
+        message: `Sync ${skills.length} skills - ${new Date().toISOString()}`,
         tree: newTree.sha,
         parents: [commitSha],
       }),
@@ -507,29 +492,26 @@ export function useGitHubSync() {
     return true;
   };
 
-  // Add prompt to local database with full data
-  const addPromptToLocal = async (prompt: PromptFullData) => {
+  // Add skill to local database with full data
+  const addSkillToLocal = async (skill: SkillFullData) => {
     const db = await getDatabase();
-    const promptId = prompt.id || generateId();
+    const skillId = skill.id || generateId();
     const now = new Date().toISOString();
 
-    // Insert prompt
-    db.run('INSERT INTO prompts (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)', [
-      promptId,
-      prompt.title,
-      prompt.created_at || now,
-      prompt.updated_at || now,
+    db.run('INSERT INTO skills (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)', [
+      skillId,
+      skill.title,
+      skill.created_at || now,
+      skill.updated_at || now,
     ]);
 
-    // Insert all versions
-    for (const version of prompt.versions) {
+    for (const version of skill.versions) {
       const versionId = generateId();
       db.run(
-        'INSERT INTO prompt_versions (id, prompt_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [versionId, promptId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
+        'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [versionId, skillId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
       );
 
-      // Insert annotation if exists
       if (version.annotation) {
         db.run('INSERT INTO version_annotations (id, version_id, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
           generateId(),
@@ -540,7 +522,6 @@ export function useGitHubSync() {
         ]);
       }
 
-      // Insert chat examples if exists
       if (version.chat_examples && version.chat_examples.length > 0) {
         db.run('INSERT INTO chat_examples (id, version_id, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
           generateId(),
@@ -552,8 +533,7 @@ export function useGitHubSync() {
       }
     }
 
-    // Insert tags
-    for (const tag of prompt.tags) {
+    for (const tag of skill.tags) {
       const existingTag = db.exec('SELECT id FROM tags WHERE name = ?', [tag.name]);
       let tagId: string;
       if (existingTag[0]?.values[0]) {
@@ -562,58 +542,53 @@ export function useGitHubSync() {
         tagId = generateId();
         db.run('INSERT INTO tags (id, name, color, created_at) VALUES (?, ?, ?, ?)', [tagId, tag.name, tag.color, now]);
       }
-      db.run('INSERT OR IGNORE INTO prompt_tags (id, prompt_id, tag_id) VALUES (?, ?, ?)', [
+      db.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [
         generateId(),
-        promptId,
+        skillId,
         tagId,
       ]);
     }
 
-    // Insert usage explanation if exists
-    if (prompt.usage_explanation) {
-      db.run('INSERT INTO prompt_usage (id, prompt_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
+    if (skill.usage_explanation) {
+      db.run('INSERT INTO skill_usage (id, skill_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
         generateId(),
-        promptId,
-        prompt.usage_explanation,
+        skillId,
+        skill.usage_explanation,
         now,
         now,
       ]);
     }
 
-    // Insert skill files if any
-    for (const sf of (prompt.skill_files || [])) {
+    for (const sf of (skill.skill_files || [])) {
       db.run(
-        'INSERT OR REPLACE INTO skill_files (id, prompt_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [generateId(), promptId, sf.filename, sf.file_type, sf.content, now, now]
+        'INSERT OR REPLACE INTO skill_files (id, skill_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), skillId, sf.filename, sf.file_type, sf.content, now, now]
       );
     }
 
-    return promptId;
+    return skillId;
   };
 
-  // Update existing prompt with full data from remote
-  const updatePromptFromRemote = async (localPromptId: string, remote: PromptFullData) => {
+  // Update existing skill with full data from remote
+  const updateSkillFromRemote = async (localSkillId: string, remote: SkillFullData) => {
     const db = await getDatabase();
     const now = new Date().toISOString();
 
-    // Update prompt metadata
-    db.run('UPDATE prompts SET title = ?, updated_at = ? WHERE id = ?', [remote.title, now, localPromptId]);
+    db.run('UPDATE skills SET title = ?, updated_at = ? WHERE id = ?', [remote.title, now, localSkillId]);
 
-    // Delete existing versions, annotations, chat examples
-    const existingVersions = db.exec('SELECT id FROM prompt_versions WHERE prompt_id = ?', [localPromptId]);
+    const existingVersions = db.exec('SELECT id FROM skill_versions WHERE skill_id = ?', [localSkillId]);
     for (const v of existingVersions[0]?.values || []) {
       const versionId = v[0] as string;
       db.run('DELETE FROM version_annotations WHERE version_id = ?', [versionId]);
       db.run('DELETE FROM chat_examples WHERE version_id = ?', [versionId]);
     }
-    db.run('DELETE FROM prompt_versions WHERE prompt_id = ?', [localPromptId]);
+    db.run('DELETE FROM skill_versions WHERE skill_id = ?', [localSkillId]);
 
-    // Insert all versions from remote
     for (const version of remote.versions) {
       const versionId = generateId();
       db.run(
-        'INSERT INTO prompt_versions (id, prompt_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [versionId, localPromptId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
+        'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [versionId, localSkillId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
       );
 
       if (version.annotation) {
@@ -637,44 +612,40 @@ export function useGitHubSync() {
       }
     }
 
-    // Update tags
-    db.run('DELETE FROM prompt_tags WHERE prompt_id = ?', [localPromptId]);
+    db.run('DELETE FROM skill_tags WHERE skill_id = ?', [localSkillId]);
     for (const tag of remote.tags) {
       const existingTag = db.exec('SELECT id FROM tags WHERE name = ?', [tag.name]);
       let tagId: string;
       if (existingTag[0]?.values[0]) {
         tagId = existingTag[0].values[0][0] as string;
-        // Update tag color if needed
         db.run('UPDATE tags SET color = ? WHERE id = ?', [tag.color, tagId]);
       } else {
         tagId = generateId();
         db.run('INSERT INTO tags (id, name, color, created_at) VALUES (?, ?, ?, ?)', [tagId, tag.name, tag.color, now]);
       }
-      db.run('INSERT OR IGNORE INTO prompt_tags (id, prompt_id, tag_id) VALUES (?, ?, ?)', [
+      db.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [
         generateId(),
-        localPromptId,
+        localSkillId,
         tagId,
       ]);
     }
 
-    // Update usage explanation
-    db.run('DELETE FROM prompt_usage WHERE prompt_id = ?', [localPromptId]);
+    db.run('DELETE FROM skill_usage WHERE skill_id = ?', [localSkillId]);
     if (remote.usage_explanation) {
-      db.run('INSERT INTO prompt_usage (id, prompt_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
+      db.run('INSERT INTO skill_usage (id, skill_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
         generateId(),
-        localPromptId,
+        localSkillId,
         remote.usage_explanation,
         now,
         now,
       ]);
     }
 
-    // Update skill files
-    db.run('DELETE FROM skill_files WHERE prompt_id = ?', [localPromptId]);
+    db.run('DELETE FROM skill_files WHERE skill_id = ?', [localSkillId]);
     for (const sf of (remote.skill_files || [])) {
       db.run(
-        'INSERT INTO skill_files (id, prompt_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [generateId(), localPromptId, sf.filename, sf.file_type, sf.content, now, now]
+        'INSERT INTO skill_files (id, skill_id, filename, file_type, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), localSkillId, sf.filename, sf.file_type, sf.content, now, now]
       );
     }
   };
@@ -682,40 +653,35 @@ export function useGitHubSync() {
   // Execute merge after conflict resolution
   const executeMerge = useCallback(
     async (
-      remotePrompts: Map<string, PromptFullData>,
-      localPrompts: Map<string, PromptFullData>,
+      remoteSkills: Map<string, SkillFullData>,
+      localSkills: Map<string, SkillFullData>,
       resolutions: Map<string, 'local' | 'remote' | 'both'>
     ) => {
       const db = await getDatabase();
       let added = 0;
       let updated = 0;
 
-      for (const [key, remote] of remotePrompts) {
-        const local = localPrompts.get(key);
+      for (const [key, remote] of remoteSkills) {
+        const local = localSkills.get(key);
         const resolution = resolutions.get(key);
 
         if (!local) {
-          // New remote prompt - add to local
-          await addPromptToLocal(remote);
+          await addSkillToLocal(remote);
           added++;
         } else if (resolution === 'remote') {
-          // User chose remote - update local with all remote data
-          await updatePromptFromRemote(local.id, remote);
+          await updateSkillFromRemote(local.id, remote);
           updated++;
         } else if (resolution === 'both') {
-          // Keep both - add remote as new prompt with suffix
-          const newPrompt = { ...remote, id: generateId(), title: `${remote.title} (GitHub)` };
-          await addPromptToLocal(newPrompt);
+          const newSkill = { ...remote, id: generateId(), title: `${remote.title} (GitHub)` };
+          await addSkillToLocal(newSkill);
           added++;
         }
-        // If resolution === 'local' or no conflict, keep local as is
       }
 
       await saveDatabase();
 
-      // Get final list of all prompts for push
-      const finalPrompts = await getLocalPromptsFullData();
-      return { added, updated, prompts: Array.from(finalPrompts.values()) };
+      const finalSkills = await getLocalSkillsFullData();
+      return { added, updated, skills: Array.from(finalSkills.values()) };
     },
     []
   );
@@ -723,24 +689,23 @@ export function useGitHubSync() {
   // Combined sync: pull changes, resolve conflicts, then push
   const sync = async () => {
     if (!config?.connected || !config.token) {
-      toast({ variant: 'destructive', title: 'Niet gekoppeld', description: 'Koppel eerst een repository in instellingen' });
+      toast({ variant: 'destructive', title: 'Not connected', description: 'Connect a repository in settings first' });
       return false;
     }
 
     setIsSyncing(true);
     try {
-      const [remotePrompts, localPrompts] = await Promise.all([getRemotePrompts(), getLocalPromptsFullData()]);
+      const [remoteSkills, localSkills] = await Promise.all([getRemoteSkills(), getLocalSkillsFullData()]);
 
-      if (!remotePrompts) {
-        toast({ variant: 'destructive', title: 'Fout', description: 'Kon GitHub niet bereiken' });
+      if (!remoteSkills) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not reach GitHub' });
         return false;
       }
 
-      // Find conflicts (compare active version content)
       const foundConflicts: ConflictInfo[] = [];
 
-      for (const [key, remote] of remotePrompts) {
-        const local = localPrompts.get(key);
+      for (const [key, remote] of remoteSkills) {
+        const local = localSkills.get(key);
 
         if (local) {
           const localActiveVersion = local.versions.find((v) => v.is_active) || local.versions[local.versions.length - 1];
@@ -766,25 +731,23 @@ export function useGitHubSync() {
       }
 
       if (foundConflicts.length > 0) {
-        // Store pending sync data and show conflict dialog
         setConflicts(foundConflicts);
         setConflictIndex(0);
         setConflictResolutions(new Map());
-        setPendingSync({ remotePrompts, localPrompts });
+        setPendingSync({ remoteSkills, localSkills });
         setIsSyncing(false);
         return false;
       }
 
-      // No conflicts - merge and push
-      const { added, prompts } = await executeMerge(remotePrompts, localPrompts, new Map());
+      const { added, skills } = await executeMerge(remoteSkills, localSkills, new Map());
 
-      if (prompts.length > 0) {
-        await pushToGitHub(prompts);
+      if (skills.length > 0) {
+        await pushToGitHub(skills);
       }
 
       toast({ 
-        title: 'Sync voltooid', 
-        description: added > 0 ? `${added} nieuwe prompts, ${prompts.length} totaal gepusht` : `${prompts.length} prompts gesynchroniseerd`
+        title: 'Sync complete', 
+        description: added > 0 ? `${added} new skills, ${skills.length} total pushed` : `${skills.length} skills synced`
       });
 
       if (added > 0) {
@@ -796,8 +759,8 @@ export function useGitHubSync() {
       console.error('Sync failed:', e);
       toast({
         variant: 'destructive',
-        title: 'Sync mislukt',
-        description: e instanceof Error ? e.message : 'Onbekende fout',
+        title: 'Sync failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
       });
       return false;
     } finally {
@@ -814,29 +777,26 @@ export function useGitHubSync() {
       setConflictResolutions(newResolutions);
 
       if (conflictIndex < conflicts.length - 1) {
-        // More conflicts to resolve
         setConflictIndex(conflictIndex + 1);
       } else {
-        // All conflicts resolved - execute merge and push
         if (pendingSync) {
           setIsSyncing(true);
           try {
-            const { added, updated, prompts } = await executeMerge(
-              pendingSync.remotePrompts,
-              pendingSync.localPrompts,
+            const { added, updated, skills } = await executeMerge(
+              pendingSync.remoteSkills,
+              pendingSync.localSkills,
               newResolutions
             );
 
-            if (prompts.length > 0) {
-              await pushToGitHub(prompts);
+            if (skills.length > 0) {
+              await pushToGitHub(skills);
             }
 
             toast({
-              title: 'Sync voltooid',
-              description: `${added} toegevoegd, ${updated} bijgewerkt, ${prompts.length} gepusht`,
+              title: 'Sync complete',
+              description: `${added} added, ${updated} updated, ${skills.length} pushed`,
             });
 
-            // Reset state
             setConflicts([]);
             setConflictIndex(0);
             setConflictResolutions(new Map());
@@ -844,7 +804,7 @@ export function useGitHubSync() {
 
             window.location.reload();
           } catch (e) {
-            toast({ variant: 'destructive', title: 'Sync mislukt', description: e instanceof Error ? e.message : 'Onbekende fout' });
+            toast({ variant: 'destructive', title: 'Sync failed', description: e instanceof Error ? e.message : 'Unknown error' });
           } finally {
             setIsSyncing(false);
           }
@@ -859,7 +819,7 @@ export function useGitHubSync() {
     setConflictIndex(0);
     setConflictResolutions(new Map());
     setPendingSync(null);
-    toast({ title: 'Sync geannuleerd' });
+    toast({ title: 'Sync cancelled' });
   }, [toast]);
 
   return {
