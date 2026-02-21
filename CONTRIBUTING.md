@@ -1,4 +1,4 @@
-# Contributing to Prompt Library (Skill Keep)
+# Contributing to Skill Keep
 
 Thank you for your interest in contributing!
 
@@ -6,20 +6,21 @@ Thank you for your interest in contributing!
 
 This project was **vibe-coded** using [Lovable](https://lovable.dev). The repository owner has not manually reviewed all generated code. Security has been checked using Lovable's built-in scanner, but please keep this in mind when contributing — you may encounter patterns that look unusual.
 
-## ⚠️ Supabase Leftovers (Obsolete)
+## ⚠️ Supabase / Lovable Cloud Files
 
 You will notice several Supabase-related files in this repository:
 
 - `src/integrations/supabase/` — Auto-generated client and types
-- `.env` — Contains Supabase environment variables
+- `.env` — Contains Lovable Cloud environment variables
 - `supabase/config.toml` — Supabase configuration
 - `supabase/migrations/` — Database migration files
+- `supabase/functions/` — Edge functions (used for GitHub import on Lovable Cloud)
 
-**These files are obsolete and not used by the application.** The app uses:
+**These files are managed by Lovable Cloud and should not be edited manually.** The core app uses:
 - **SQLite (sql.js)** stored in browser IndexedDB for local data storage
-- **GitHub API** for optional prompt synchronization
+- **GitHub API** for optional skill synchronization
 
-These files remain because they are read-only and managed by Lovable Cloud. You can safely ignore them when contributing.
+You can safely ignore these files when contributing to core functionality.
 
 ## How to Contribute
 
