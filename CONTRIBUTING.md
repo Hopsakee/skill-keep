@@ -1,39 +1,37 @@
-# Contributing to Prompt Library
+# Contributing to Prompt Library (Skill Keep)
 
-Thank you for your interest in contributing to this project! 
+Thank you for your interest in contributing!
 
 ## ⚠️ Important Notice
 
-This project was "vibe-coded" using [Lovable](https://lovable.dev). The original author has not manually reviewed all the code. Please keep this in mind when contributing.
+This project was **vibe-coded** using [Lovable](https://lovable.dev). The repository owner has not manually reviewed all generated code. Security has been checked using Lovable's built-in scanner, but please keep this in mind when contributing — you may encounter patterns that look unusual.
 
 ## ⚠️ Supabase Leftovers (Obsolete)
 
-You may notice several Supabase-related files in this repository:
+You will notice several Supabase-related files in this repository:
 
-- `src/integrations/supabase/` - Auto-generated Supabase client and types
-- `.env` - Contains Supabase environment variables
-- `supabase/config.toml` - Supabase configuration file
-- `supabase/migrations/` - Database migration files
+- `src/integrations/supabase/` — Auto-generated client and types
+- `.env` — Contains Supabase environment variables
+- `supabase/config.toml` — Supabase configuration
+- `supabase/migrations/` — Database migration files
 
-**These files are obsolete and not used by the application.** The app now uses:
+**These files are obsolete and not used by the application.** The app uses:
 - **SQLite (sql.js)** stored in browser IndexedDB for local data storage
-- **GitHub API** for syncing prompts as Markdown files
+- **GitHub API** for optional prompt synchronization
 
-The Supabase files remain because they are **read-only and locked by Lovable Cloud**, which auto-generates and manages them. See [Issue #1](../../issues/1) for more details.
-
-When contributing, you can safely ignore these files - they have no effect on the application's functionality.
+These files remain because they are read-only and managed by Lovable Cloud. You can safely ignore them when contributing.
 
 ## How to Contribute
 
 ### Reporting Bugs
 
-1. Check if the issue already exists in the [Issues](../../issues) section
+1. Check if the issue already exists in [Issues](../../issues)
 2. If not, create a new issue with:
    - A clear, descriptive title
    - Steps to reproduce the problem
-   - Expected vs actual behavior
+   - Expected vs. actual behavior
    - Screenshots if applicable
-   - Your environment (browser, OS)
+   - Your browser and OS
 
 ### Suggesting Features
 
@@ -58,21 +56,24 @@ When contributing, you can safely ignore these files - they have no effect on th
    - Reference to any related issues
    - Screenshots for UI changes
 
-## Coding Standards
-
-- **TypeScript**: Use proper types, avoid `any`
-- **React**: Use functional components with hooks
-- **Styling**: Use Tailwind CSS utility classes and the design system tokens from `index.css`
-- **Components**: Keep components small and focused
-- **Naming**: Use descriptive variable and function names
-
 ## Development Setup
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Start the dev server: `npm run dev`
+```bash
+git clone <your-fork-url>
+cd skill-keep
+npm install
+npm run dev
+```
 
-Note: No environment variables are required for local development. The app uses browser-based SQLite storage.
+No environment variables are required. The app uses browser-local SQLite storage.
+
+## Coding Standards
+
+- **TypeScript**: Use proper types; avoid `any`
+- **React**: Functional components with hooks
+- **Styling**: Tailwind CSS utility classes and semantic design tokens from `index.css`
+- **Components**: Keep components small and focused
+- **Naming**: Use descriptive variable and function names
 
 ## Code Review Process
 
@@ -86,4 +87,4 @@ If you discover a security vulnerability, please **do not** open a public issue.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
