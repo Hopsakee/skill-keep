@@ -54,18 +54,15 @@ function FileTypeBadge({ type }: { type: 'script' | 'reference' }) {
 
 interface FileNode {
   name: string;
-  file?: SkillFile;           // leaf
-  children?: Map<string, FileNode>; // directory
+  file?: SkillFile;
+  children?: Map<string, FileNode>;
 }
 
-/** Build a tree from a flat list of files that may have paths like "scripts/office/foo.xsd" */
 function buildTree(files: SkillFile[]): Map<string, FileNode> {
   const root = new Map<string, FileNode>();
-
   for (const file of files) {
     const parts = file.filename.split('/');
     let current = root;
-
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       if (!current.has(part)) {
@@ -74,28 +71,27 @@ function buildTree(files: SkillFile[]): Map<string, FileNode> {
       const node = current.get(part)!;
       if (i === parts.length - 1) {
         node.file = file;
-        node.children = undefined; // leaf
+        node.children = undefined;
       } else {
         if (!node.children) node.children = new Map();
         current = node.children;
       }
     }
   }
-
   return root;
 }
 
 // ── Add file form ────────────────────────────────────────────────────────────
 
 interface AddFileFormProps {
-  promptId: string;
+  skillId: string;
   existingFiles: SkillFile[];
   onClose: () => void;
   upsertFile: (args: { skillId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
   isUpserting: boolean;
 }
 
-function AddFileForm({ promptId, existingFiles, onClose, upsertFile, isUpserting }: AddFileFormProps) {
+function AddFileForm({ skillId, existingFiles, onClose, upsertFile, isUpserting }: AddFileFormProps) {
   const [filename, setFilename] = useState('');
   const [fileType, setFileType] = useState<'script' | 'reference'>('reference');
   const [content, setContent] = useState('');
@@ -109,7 +105,7 @@ function AddFileForm({ promptId, existingFiles, onClose, upsertFile, isUpserting
   const handleSave = async () => {
     const err = validateFilename(filename, existingFiles);
     if (err) { setFilenameError(err); return; }
-    await upsertFile({ promptId, filename: filename.trim(), file_type: fileType, content });
+    await upsertFile({ skillId, filename: filename.trim(), file_type: fileType, content });
     onClose();
   };
 
@@ -174,9 +170,9 @@ function AddFileForm({ promptId, existingFiles, onClose, upsertFile, isUpserting
 interface FileRowProps {
   file: SkillFile;
   allFiles: SkillFile[];
-  label: string; // just the basename to display
+  label: string;
   indent: number;
-  upsertFile: (args: { promptId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
+  upsertFile: (args: { skillId: string; filename: string; file_type: 'script' | 'reference'; content: string; existingId?: string }) => Promise<void>;
   deleteFile: (id: string) => Promise<void>;
   isUpserting: boolean;
 }
@@ -197,7 +193,7 @@ function FileRow({ file, allFiles, label, indent, upsertFile, deleteFile, isUpse
     const err = validateFilename(editFilename, allFiles, file.id);
     if (err) { setFilenameError(err); return; }
     await upsertFile({
-      promptId: file.skill_id,
+      skillId: file.skill_id,
       filename: editFilename.trim(),
       file_type: editType,
       content: editContent,
@@ -218,7 +214,6 @@ function FileRow({ file, allFiles, label, indent, upsertFile, deleteFile, isUpse
 
   return (
     <div className="rounded-md border border-border bg-background">
-      {/* Collapsed row */}
       <div className="flex items-center gap-2 p-2" style={{ paddingLeft: `${8 + indentPx}px` }}>
         <FileTypeIcon type={file.file_type} />
         <span className="flex-1 font-mono text-sm text-foreground truncate">{label}</span>
@@ -255,7 +250,6 @@ function FileRow({ file, allFiles, label, indent, upsertFile, deleteFile, isUpse
         </AlertDialog>
       </div>
 
-      {/* Expanded editor */}
       {expanded && (
         <div className="border-t border-border p-3 space-y-3 bg-muted/10">
           <div className="grid grid-cols-2 gap-3">
@@ -323,7 +317,6 @@ interface FolderNodeProps {
 
 function FolderNode({ name, children, allFiles, indent, upsertFile, deleteFile, isUpserting, defaultOpen = true }: FolderNodeProps) {
   const [open, setOpen] = useState(defaultOpen);
-
   const totalFiles = countLeaves(children);
 
   return (
@@ -381,7 +374,6 @@ interface TreeNodesProps {
 
 function TreeNodes({ nodes, allFiles, indent, upsertFile, deleteFile, isUpserting }: TreeNodesProps) {
   const sorted = [...nodes.entries()].sort(([, a], [, b]) => {
-    // directories first, then files
     const aDir = !a.file;
     const bDir = !b.file;
     if (aDir !== bDir) return aDir ? -1 : 1;
@@ -422,7 +414,7 @@ function TreeNodes({ nodes, allFiles, indent, upsertFile, deleteFile, isUpsertin
   );
 }
 
-// ── Section (Scripts / Reference files) with collapsible header ──────────────
+// ── Section ──────────────────────────────────────────────────────────────────
 
 interface SectionProps {
   icon: React.ReactNode;
@@ -491,7 +483,6 @@ export function SkillFiles({ skillId }: SkillFilesProps) {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold">Bundled files</h3>
@@ -507,10 +498,9 @@ export function SkillFiles({ skillId }: SkillFilesProps) {
           )}
         </div>
 
-        {/* Add file form */}
         {showAddForm && (
           <AddFileForm
-            promptId={promptId}
+            skillId={skillId}
             existingFiles={files}
             onClose={() => setShowAddForm(false)}
             upsertFile={upsertFile}
@@ -518,7 +508,6 @@ export function SkillFiles({ skillId }: SkillFilesProps) {
           />
         )}
 
-        {/* Scripts section */}
         {scripts.length > 0 && (
           <Section
             icon={<Terminal className="h-4 w-4 text-muted-foreground" />}
@@ -532,7 +521,6 @@ export function SkillFiles({ skillId }: SkillFilesProps) {
           />
         )}
 
-        {/* Reference files section */}
         {references.length > 0 && (
           <Section
             icon={<FileText className="h-4 w-4 text-muted-foreground" />}
@@ -546,7 +534,6 @@ export function SkillFiles({ skillId }: SkillFilesProps) {
           />
         )}
 
-        {/* Empty state */}
         {files.length === 0 && !showAddForm && (
           <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
             <FileText className="h-10 w-10 mb-3 opacity-30" />

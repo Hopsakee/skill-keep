@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { getDatabase } from '@/lib/database';
-import type { Prompt, SkillFile } from '@/types';
+import type { Skill, SkillFile } from '@/types';
 
 function slugify(title: string): string {
   return title
@@ -11,31 +11,29 @@ function slugify(title: string): string {
 }
 
 interface SkillExportData {
-  prompt: Prompt;
+  skill: Skill;
   files: SkillFile[];
 }
 
-async function loadSkillData(promptIds: string[]): Promise<SkillExportData[]> {
+async function loadSkillData(skillIds: string[]): Promise<SkillExportData[]> {
   const db = await getDatabase();
-
   const result: SkillExportData[] = [];
 
-  for (const promptId of promptIds) {
-    const promptResult = db.exec(
-      'SELECT id, title, description, license, created_at, updated_at FROM prompts WHERE id = ?',
-      [promptId]
+  for (const skillId of skillIds) {
+    const skillResult = db.exec(
+      'SELECT id, title, description, license, created_at, updated_at FROM skills WHERE id = ?',
+      [skillId]
     );
-    if (!promptResult[0]?.values[0]) continue;
+    if (!skillResult[0]?.values[0]) continue;
 
-    const cols = promptResult[0].columns;
-    const row = promptResult[0].values[0];
-    const prompt: Record<string, unknown> = {};
-    cols.forEach((col, i) => { prompt[col] = row[i]; });
+    const cols = skillResult[0].columns;
+    const row = skillResult[0].values[0];
+    const skill: Record<string, unknown> = {};
+    cols.forEach((col, i) => { skill[col] = row[i]; });
 
-    // Active version
     const versionResult = db.exec(
-      'SELECT id, prompt_id, content, version_number, is_active, created_at FROM prompt_versions WHERE prompt_id = ? AND is_active = 1',
-      [promptId]
+      'SELECT id, skill_id, content, version_number, is_active, created_at FROM skill_versions WHERE skill_id = ? AND is_active = 1',
+      [skillId]
     );
     if (versionResult[0]?.values[0]) {
       const vcols = versionResult[0].columns;
@@ -43,13 +41,12 @@ async function loadSkillData(promptIds: string[]): Promise<SkillExportData[]> {
       const version: Record<string, unknown> = {};
       vcols.forEach((col, i) => { version[col] = vrow[i]; });
       version.is_active = Boolean(version.is_active);
-      prompt.active_version = version;
+      skill.active_version = version;
     }
 
-    // Skill files
     const filesResult = db.exec(
-      'SELECT id, prompt_id, filename, file_type, content, created_at, updated_at FROM skill_files WHERE prompt_id = ? ORDER BY file_type, filename',
-      [promptId]
+      'SELECT id, skill_id, filename, file_type, content, created_at, updated_at FROM skill_files WHERE skill_id = ? ORDER BY file_type, filename',
+      [skillId]
     );
     const files: SkillFile[] = [];
     if (filesResult[0]) {
@@ -61,21 +58,18 @@ async function loadSkillData(promptIds: string[]): Promise<SkillExportData[]> {
       }
     }
 
-    result.push({ prompt: prompt as unknown as Prompt, files });
+    result.push({ skill: skill as unknown as Skill, files });
   }
 
   return result;
 }
 
-function buildSkillMd(prompt: Prompt): string {
-  const content = prompt.active_version?.content || '';
-  const now = prompt.updated_at || new Date().toISOString();
-  const lines = [
-    `---`,
-    `name: "${prompt.title.replace(/"/g, '\\"')}"`,
-  ];
-  if (prompt.description) lines.push(`description: "${prompt.description.replace(/"/g, '\\"')}"`);
-  if (prompt.license) lines.push(`license: "${prompt.license.replace(/"/g, '\\"')}"`);
+function buildSkillMd(skill: Skill): string {
+  const content = skill.active_version?.content || '';
+  const now = skill.updated_at || new Date().toISOString();
+  const lines = [`---`, `name: "${skill.title.replace(/"/g, '\\"')}"`];
+  if (skill.description) lines.push(`description: "${skill.description.replace(/"/g, '\\"')}"`);
+  if (skill.license) lines.push(`license: "${skill.license.replace(/"/g, '\\"')}"`);
   lines.push(`updated: ${now}`);
   lines.push(`---`);
   lines.push('');
@@ -83,21 +77,19 @@ function buildSkillMd(prompt: Prompt): string {
   return lines.join('\n');
 }
 
-export async function downloadSkillsAsZip(promptIds: string[], zipName = 'skills-export'): Promise<void> {
-  const skills = await loadSkillData(promptIds);
+export async function downloadSkillsAsZip(skillIds: string[], zipName = 'skills-export'): Promise<void> {
+  const skills = await loadSkillData(skillIds);
   const zip = new JSZip();
-
-  // Track used slugs to handle collisions
   const usedSlugs = new Map<string, number>();
 
-  for (const { prompt, files } of skills) {
-    let slug = slugify(prompt.title);
+  for (const { skill, files } of skills) {
+    let slug = slugify(skill.title);
     const count = usedSlugs.get(slug) ?? 0;
     usedSlugs.set(slug, count + 1);
     if (count > 0) slug = `${slug}-${count}`;
 
     const folder = zip.folder(slug)!;
-    folder.file('SKILL.md', buildSkillMd(prompt));
+    folder.file('SKILL.md', buildSkillMd(skill));
 
     for (const file of files) {
       folder.file(file.filename, file.content);

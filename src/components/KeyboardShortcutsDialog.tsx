@@ -14,29 +14,29 @@ interface KeyboardShortcutsDialogProps {
 }
 
 const shortcuts = [
-  { category: 'Navigatie', items: [
-    { keys: ['↑', 'K'], description: 'Vorige prompt' },
-    { keys: ['↓', 'J'], description: 'Volgende prompt' },
-    { keys: ['/'], description: 'Focus zoekbalk' },
-    { keys: ['Esc'], description: 'Deselecteer / Annuleer' },
-    { keys: ['1'], description: 'Ga naar Prompt tab' },
-    { keys: ['2'], description: 'Ga naar Toelichting gebruik tab' },
-    { keys: ['3'], description: 'Ga naar Chat-voorbeelden tab' },
-    { keys: ['4'], description: 'Ga naar Notities tab' },
+  { category: 'Navigation', items: [
+    { keys: ['↑', 'K'], description: 'Previous skill' },
+    { keys: ['↓', 'J'], description: 'Next skill' },
+    { keys: ['/'], description: 'Focus search bar' },
+    { keys: ['Esc'], description: 'Deselect / Cancel' },
+    { keys: ['1'], description: 'Go to Skill tab' },
+    { keys: ['2'], description: 'Go to Deployment notes tab' },
+    { keys: ['3'], description: 'Go to Test examples tab' },
+    { keys: ['4'], description: 'Go to Notes tab' },
   ]},
-  { category: 'Acties', items: [
-    { keys: ['N'], description: 'Nieuwe prompt' },
-    { keys: ['E'], description: 'Nieuwe versie maken' },
-    { keys: ['Ctrl', 'S'], description: 'Opslaan' },
-    { keys: ['Ctrl', 'Shift', 'K'], description: 'Kopieer actieve prompt' },
+  { category: 'Actions', items: [
+    { keys: ['N'], description: 'New skill' },
+    { keys: ['E'], description: 'Create new version' },
+    { keys: ['Ctrl', 'S'], description: 'Save' },
+    { keys: ['Ctrl', 'Shift', 'K'], description: 'Copy active skill' },
   ]},
   { category: 'Tags', items: [
-    { keys: ['T'], description: 'Focus tag invoerveld' },
+    { keys: ['T'], description: 'Focus tag input' },
     { keys: ['Alt', '1-9'], description: 'Toggle tag 1-9' },
-    { keys: ['Ctrl', 'T'], description: 'Open tag beheer' },
+    { keys: ['Ctrl', 'T'], description: 'Open tag management' },
   ]},
   { category: 'Help', items: [
-    { keys: ['?'], description: 'Toon sneltoetsen' },
+    { keys: ['?'], description: 'Show shortcuts' },
   ]},
 ];
 
@@ -45,28 +45,26 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle>Prompt Vault - Help</DialogTitle>
+          <DialogTitle>Skill Keep - Help</DialogTitle>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] pr-4">
-          {/* App description */}
           <div className="mb-6">
-            <h3 className="mb-2 text-sm font-semibold">Over deze app</h3>
+            <h3 className="mb-2 text-sm font-semibold">About this app</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Prompt Vault is een lokale app voor het beheren van prompts. Elke wijziging aan een prompt 
-              creëert een nieuwe versie, zodat je altijd kunt terugkeren naar eerdere versies.
+              Skill Keep is a local app for managing agent skills. Each change to a skill 
+              creates a new version, so you can always return to earlier versions.
             </p>
             <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-              <li>• <strong>Toelichting gebruik</strong> – Uitleg over het doel en gebruik van de prompt (blijft behouden tussen versies)</li>
-              <li>• <strong>Chat-voorbeelden</strong> – Voorbeelden van user prompts en assistant responses (per versie, user prompts worden gekopieerd)</li>
-              <li>• <strong>Notities versies</strong> – Notities per versie om wijzigingen te documenteren</li>
+              <li>• <strong>Deployment notes</strong> – Explanation of the purpose and usage of the skill (preserved between versions)</li>
+              <li>• <strong>Test examples</strong> – Examples of user prompts and assistant responses (per version, user prompts are copied)</li>
+              <li>• <strong>Version notes</strong> – Notes per version to document changes</li>
             </ul>
           </div>
 
           <Separator className="my-4" />
 
-          {/* Keyboard shortcuts */}
           <div className="space-y-6">
-            <h3 className="text-sm font-semibold">Sneltoetsen</h3>
+            <h3 className="text-sm font-semibold">Keyboard shortcuts</h3>
             {shortcuts.map((section) => (
               <div key={section.category}>
                 <h4 className="mb-3 text-sm font-medium text-muted-foreground">
@@ -97,7 +95,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
           </div>
         </ScrollArea>
         <p className="mt-4 text-xs text-muted-foreground">
-          Tip: Op Mac kun je ⌘ gebruiken in plaats van Ctrl
+          Tip: On Mac you can use ⌘ instead of Ctrl
         </p>
       </DialogContent>
     </Dialog>
