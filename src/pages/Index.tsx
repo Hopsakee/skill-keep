@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
-import { Prompt, useTags } from '@/hooks/useLocalPrompts';
+import { Skill, useTags } from '@/hooks/useLocalSkills';
 import { Header } from '@/components/Header';
-import { PromptList, PromptListRef } from '@/components/PromptList';
-import { PromptEditor, PromptEditorRef } from '@/components/PromptEditor';
+import { SkillList, SkillListRef } from '@/components/SkillList';
+import { SkillEditor, SkillEditorRef } from '@/components/SkillEditor';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
 import { TagManagementDialog } from '@/components/TagManagementDialog';
@@ -10,53 +10,53 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { toast } from 'sonner';
 
 export default function Index() {
-  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [isNewPrompt, setIsNewPrompt] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [isNewSkill, setIsNewSkill] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [tagManagementOpen, setTagManagementOpen] = useState(false);
-  const promptListRef = useRef<PromptListRef>(null);
-  const promptEditorRef = useRef<PromptEditorRef>(null);
+  const skillListRef = useRef<SkillListRef>(null);
+  const skillEditorRef = useRef<SkillEditorRef>(null);
   const { tags } = useTags();
 
-  const handleCopyActivePrompt = useCallback(async () => {
-    if (selectedPrompt?.active_version?.content) {
+  const handleCopyActiveSkill = useCallback(async () => {
+    if (selectedSkill?.active_version?.content) {
       try {
-        await navigator.clipboard.writeText(selectedPrompt.active_version.content);
-        toast.success(`"${selectedPrompt.title}" gekopieerd naar clipboard`);
+        await navigator.clipboard.writeText(selectedSkill.active_version.content);
+        toast.success(`"${selectedSkill.title}" copied to clipboard`);
       } catch {
-        toast.error('Kopiëren mislukt');
+        toast.error('Copy failed');
       }
     } else {
-      toast.error('Geen prompt geselecteerd om te kopiëren');
+      toast.error('No skill selected to copy');
     }
-  }, [selectedPrompt]);
+  }, [selectedSkill]);
 
   useKeyboardShortcuts({
-    onNewPrompt: () => {
-      setSelectedPrompt(null);
-      setIsNewPrompt(true);
+    onNewSkill: () => {
+      setSelectedSkill(null);
+      setIsNewSkill(true);
     },
-    onCopyActivePrompt: handleCopyActivePrompt,
-    onNavigateUp: () => promptListRef.current?.navigateUp(),
-    onNavigateDown: () => promptListRef.current?.navigateDown(),
+    onCopyActiveSkill: handleCopyActiveSkill,
+    onNavigateUp: () => skillListRef.current?.navigateUp(),
+    onNavigateDown: () => skillListRef.current?.navigateDown(),
     onSave: () => {
-      promptEditorRef.current?.triggerSave();
+      skillEditorRef.current?.triggerSave();
     },
     onEscape: () => {
-      setSelectedPrompt(null);
-      setIsNewPrompt(false);
+      setSelectedSkill(null);
+      setIsNewSkill(false);
     },
-    onFocusSearch: () => promptListRef.current?.focusSearch(),
+    onFocusSearch: () => skillListRef.current?.focusSearch(),
     onShowHelp: () => setShortcutsOpen(true),
     onNewVersion: () => {
-      if (selectedPrompt && !isNewPrompt) {
-        promptEditorRef.current?.startNewVersion();
+      if (selectedSkill && !isNewSkill) {
+        skillEditorRef.current?.startNewVersion();
       }
     },
     onSwitchTab: (tabIndex: number) => {
-      if (selectedPrompt || isNewPrompt) {
-        promptEditorRef.current?.switchTab(tabIndex);
+      if (selectedSkill || isNewSkill) {
+        skillEditorRef.current?.switchTab(tabIndex);
       }
     },
     onFocusTagInput: () => {
@@ -66,30 +66,30 @@ export default function Index() {
       }
     },
     onToggleTag: (tagIndex: number) => {
-      if ((selectedPrompt || isNewPrompt) && tags[tagIndex]) {
-        promptEditorRef.current?.toggleTagByIndex(tagIndex);
+      if ((selectedSkill || isNewSkill) && tags[tagIndex]) {
+        skillEditorRef.current?.toggleTagByIndex(tagIndex);
       }
     },
     onOpenTagManagement: () => setTagManagementOpen(true),
   });
 
-  const handleSelectPrompt = (prompt: Prompt) => {
-    setSelectedPrompt(prompt);
-    setIsNewPrompt(false);
+  const handleSelectSkill = (skill: Skill) => {
+    setSelectedSkill(skill);
+    setIsNewSkill(false);
   };
 
-  const handleNewPrompt = () => {
-    setSelectedPrompt(null);
-    setIsNewPrompt(true);
+  const handleNewSkill = () => {
+    setSelectedSkill(null);
+    setIsNewSkill(true);
   };
 
   const handleSave = () => {
-    setIsNewPrompt(false);
+    setIsNewSkill(false);
   };
 
   const handleCancel = () => {
-    setSelectedPrompt(null);
-    setIsNewPrompt(false);
+    setSelectedSkill(null);
+    setIsNewSkill(false);
   };
 
   return (
@@ -102,19 +102,19 @@ export default function Index() {
       
       <div className="flex flex-1 overflow-hidden">
         <div className="w-80 shrink-0">
-          <PromptList
-            ref={promptListRef}
-            selectedPromptId={selectedPrompt?.id || null}
-            onSelectPrompt={handleSelectPrompt}
-            onNewPrompt={handleNewPrompt}
+          <SkillList
+            ref={skillListRef}
+            selectedSkillId={selectedSkill?.id || null}
+            onSelectSkill={handleSelectSkill}
+            onNewSkill={handleNewSkill}
           />
         </div>
         
         <main className="flex-1 overflow-hidden bg-background">
-          <PromptEditor
-            ref={promptEditorRef}
-            prompt={selectedPrompt}
-            isNew={isNewPrompt}
+          <SkillEditor
+            ref={skillEditorRef}
+            skill={selectedSkill}
+            isNew={isNewSkill}
             onSave={handleSave}
             onCancel={handleCancel}
           />

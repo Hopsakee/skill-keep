@@ -1,8 +1,8 @@
 import { useEffect, useCallback } from 'react';
 
 interface KeyboardShortcutsOptions {
-  onNewPrompt: () => void;
-  onCopyActivePrompt: () => void;
+  onNewSkill: () => void;
+  onCopyActiveSkill: () => void;
   onNavigateUp: () => void;
   onNavigateDown: () => void;
   onSave: () => void;
@@ -17,8 +17,8 @@ interface KeyboardShortcutsOptions {
 }
 
 export function useKeyboardShortcuts({
-  onNewPrompt,
-  onCopyActivePrompt,
+  onNewSkill,
+  onCopyActiveSkill,
   onNavigateUp,
   onNavigateDown,
   onSave,
@@ -46,10 +46,10 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // Ctrl/Cmd+Shift+K for copy (C is reserved by browser for DevTools on Windows)
+      // Ctrl/Cmd+Shift+K for copy
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        onCopyActivePrompt();
+        onCopyActiveSkill();
         return;
       }
 
@@ -81,10 +81,10 @@ export function useKeyboardShortcuts({
 
       // Shortcuts that only work when not in an input
       if (!isInputFocused) {
-        // N for new prompt
+        // N for new skill
         if (event.key === 'n') {
           event.preventDefault();
-          onNewPrompt();
+          onNewSkill();
           return;
         }
 
@@ -104,26 +104,10 @@ export function useKeyboardShortcuts({
 
         // Number keys for tab switching
         if (onSwitchTab) {
-          if (event.key === '1') {
-            event.preventDefault();
-            onSwitchTab(0);
-            return;
-          }
-          if (event.key === '2') {
-            event.preventDefault();
-            onSwitchTab(1);
-            return;
-          }
-          if (event.key === '3') {
-            event.preventDefault();
-            onSwitchTab(2);
-            return;
-          }
-          if (event.key === '4') {
-            event.preventDefault();
-            onSwitchTab(3);
-            return;
-          }
+          if (event.key === '1') { event.preventDefault(); onSwitchTab(0); return; }
+          if (event.key === '2') { event.preventDefault(); onSwitchTab(1); return; }
+          if (event.key === '3') { event.preventDefault(); onSwitchTab(2); return; }
+          if (event.key === '4') { event.preventDefault(); onSwitchTab(3); return; }
         }
 
         // Arrow keys for navigation
@@ -154,7 +138,7 @@ export function useKeyboardShortcuts({
         }
       }
     },
-    [onNewPrompt, onCopyActivePrompt, onNavigateUp, onNavigateDown, onSave, onEscape, onFocusSearch, onShowHelp, onNewVersion, onSwitchTab, onFocusTagInput, onToggleTag, onOpenTagManagement]
+    [onNewSkill, onCopyActiveSkill, onNavigateUp, onNavigateDown, onSave, onEscape, onFocusSearch, onShowHelp, onNewVersion, onSwitchTab, onFocusTagInput, onToggleTag, onOpenTagManagement]
   );
 
   useEffect(() => {

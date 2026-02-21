@@ -1,6 +1,6 @@
-// Core domain types for the Prompt Vault application
+// Core domain types for the Skill Keep application
 
-export interface Prompt {
+export interface Skill {
   id: string;
   title: string;
   description?: string;
@@ -8,17 +8,23 @@ export interface Prompt {
   created_at: string;
   updated_at: string;
   tags?: Tag[];
-  active_version?: PromptVersion;
+  active_version?: SkillVersion;
 }
 
-export interface PromptVersion {
+// Backward compatibility alias
+export type Prompt = Skill;
+
+export interface SkillVersion {
   id: string;
-  prompt_id: string;
+  skill_id: string;
   content: string;
   version_number: number;
   is_active: boolean;
   created_at: string;
 }
+
+// Backward compatibility alias
+export type PromptVersion = SkillVersion;
 
 export interface Tag {
   id: string;
@@ -45,16 +51,19 @@ export interface VersionAnnotation {
   created_at?: string;
 }
 
-export interface PromptUsageData {
+export interface SkillUsageData {
   id: string;
-  prompt_id: string;
+  skill_id: string;
   explanation: string | null;
 }
+
+// Backward compatibility alias
+export type PromptUsageData = SkillUsageData;
 
 // Bundled skill files (Level 3 resources)
 export interface SkillFile {
   id: string;
-  prompt_id: string;
+  skill_id: string;
   filename: string;
   file_type: 'script' | 'reference';
   content: string;
@@ -75,7 +84,7 @@ export interface GitHubRepo {
   full_name: string;
 }
 
-export interface PromptExportData {
+export interface SkillExportData {
   id: string;
   title: string;
   content: string;
@@ -84,6 +93,9 @@ export interface PromptExportData {
   updated_at: string;
   version_number: number;
 }
+
+// Backward compatibility alias
+export type PromptExportData = SkillExportData;
 
 export interface ParsedMarkdown {
   title: string;
