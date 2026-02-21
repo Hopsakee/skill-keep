@@ -1,8 +1,8 @@
-// No Supabase client needed — this function proxies GitHub API calls
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface GitHubTreeItem {
@@ -17,10 +17,22 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // ── Basic request validation ─────────────────────────────────────────────
+  // ── JWT validation ─────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization');
-  const apiKey = req.headers.get('apikey');
-  if (!authHeader && !apiKey) {
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  );
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+  if (authError || !user) {
     return new Response(
       JSON.stringify({ success: false, error: 'Unauthorized' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -56,9 +68,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse GitHub URL — supports both tree and blob formats:
-    // https://github.com/owner/repo/tree/branch/path/to/skill
-    // https://github.com/owner/repo/blob/SHA/path/to/file.md  (parent dir used as skill dir)
+    // Parse GitHub URL
     const treePattern = /github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)(\/(.+))?/;
     const blobPattern = /github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)/;
 
@@ -90,29 +100,24 @@ Deno.serve(async (req) => {
     const githubToken = Deno.env.get('GITHUB_TOKEN');
     const headers: Record<string, string> = {
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'SkillsVault',
+      'User-Agent': 'SkillKeep',
     };
     if (githubToken) {
       headers['Authorization'] = `Bearer ${githubToken}`;
     }
 
-    // Get the tree for the given ref
     const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`;
-    console.log('Fetching tree:', treeUrl);
 
     let treeRes = await fetch(treeUrl, { headers });
 
-    // If 401, the token is invalid — retry without auth (works for public repos)
     if (treeRes.status === 401 && githubToken) {
-      console.warn('GitHub token returned 401, retrying without auth');
+      console.warn('GitHub token auth failed, retrying without auth');
       delete headers['Authorization'];
       treeRes = await fetch(treeUrl, { headers });
     }
 
     if (!treeRes.ok) {
-      // Log internally but return a safe generic message to the caller
-      const err = await treeRes.text();
-      console.error('GitHub tree error:', treeRes.status, err);
+      console.error('GitHub tree fetch failed:', treeRes.status);
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to fetch from GitHub. Check that the repository is public and the URL is correct.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -122,7 +127,6 @@ Deno.serve(async (req) => {
     const treeData = await treeRes.json();
     const allItems: GitHubTreeItem[] = treeData.tree || [];
 
-    // Filter to files inside dirPath
     const prefix = dirPath ? dirPath + '/' : '';
     const relevantItems = allItems.filter(
       (item) => item.type === 'blob' && item.path.startsWith(prefix)
@@ -135,7 +139,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch file contents
     const files: Array<{ filename: string; content: string }> = [];
 
     for (const item of relevantItems) {
@@ -145,7 +148,6 @@ Deno.serve(async (req) => {
       const blobRes = await fetch(blobUrl, { headers });
 
       if (!blobRes.ok) {
-        console.error('Failed to fetch blob:', item.path);
         continue;
       }
 
@@ -180,7 +182,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Unexpected error in github-fetch-skill');
     return new Response(
       JSON.stringify({ success: false, error: 'An unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

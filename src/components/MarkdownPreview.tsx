@@ -2,6 +2,7 @@ import { useMemo, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
+import DOMPurify from 'dompurify';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -12,7 +13,11 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
   const containerRef = useRef<HTMLDivElement>(null);
   
   const html = useMemo(() => {
-    return parseMarkdownToHtml(content);
+    const raw = parseMarkdownToHtml(content);
+    return DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'a', 'ul', 'ol', 'li', 'code', 'pre', 'strong', 'em', 'del', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'br'],
+      ALLOWED_ATTR: ['href', 'class', 'target', 'rel'],
+    });
   }, [content]);
 
   useEffect(() => {
