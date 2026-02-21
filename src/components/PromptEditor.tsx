@@ -1,5 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { Prompt, usePrompts, useTags, usePromptVersions, useRestoreVersion, PromptVersion } from '@/hooks/useLocalPrompts';
+import { Skill, useSkills, useTags, useSkillVersions, useRestoreVersion, SkillVersion } from '@/hooks/useLocalSkills';
 import { Input } from '@/components/ui/input';
 import { TAG_COLORS } from '@/constants';
 import { Button } from '@/components/ui/button';
@@ -22,18 +22,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Save, Trash2, History, RotateCcw, Plus, X, Copy, Eye, EyeOff, FilePlus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { PromptUsage } from './PromptUsage';
+import { SkillUsage } from './SkillUsage';
 import { VersionChatExamples } from './VersionChatExamples';
 import { AllVersionNotes } from './AllVersionNotes';
 import { MarkdownPreview } from './MarkdownPreview';
 import { SkillFiles } from './SkillFiles';
 
-interface PromptEditorProps {
-  prompt: Prompt | null;
+interface SkillEditorProps {
+  prompt: Skill | null;
   isNew: boolean;
   onSave: () => void;
   onCancel: () => void;
 }
+
+// Keep backward compat export name
+export type PromptEditorProps = SkillEditorProps;
 
 export interface PromptEditorRef {
   triggerSave: () => void;
@@ -44,13 +47,13 @@ export interface PromptEditorRef {
 
 const tabValues = ['editor', 'usage', 'examples', 'notes', 'files'];
 
-export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function PromptEditor(
+export const PromptEditor = forwardRef<PromptEditorRef, SkillEditorProps>(function PromptEditor(
   { prompt, isNew, onSave, onCancel },
   ref
 ) {
-  const { createPrompt, updatePrompt, updateTags, deletePrompt, isCreating, isUpdating } = usePrompts();
+  const { createSkill, updateSkill, updateTags, deleteSkill, isCreating, isUpdating } = useSkills();
   const { tags, createTag } = useTags();
-  const { data: versions } = usePromptVersions(prompt?.id);
+  const { data: versions } = useSkillVersions(prompt?.id);
   const restoreVersion = useRestoreVersion();
 
   const [title, setTitle] = useState('');
@@ -62,7 +65,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
   const [newTagName, setNewTagName] = useState('');
   const [activeTab, setActiveTab] = useState('editor');
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [viewingVersion, setViewingVersion] = useState<PromptVersion | null>(null);
+  const [viewingVersion, setViewingVersion] = useState<SkillVersion | null>(null);
   const [isEditingNewVersion, setIsEditingNewVersion] = useState(false);
 
   useEffect(() => {
@@ -97,14 +100,14 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
       : [...selectedTags, tagId];
     setSelectedTags(newTags);
     if (prompt && !isNew && !isEditingNewVersion) {
-      await updateTags({ promptId: prompt.id, tagIds: newTags });
+      await updateTags({ skillId: prompt.id, tagIds: newTags });
     }
   };
 
   useImperativeHandle(ref, () => ({
     triggerSave: () => {
       if (isNew) {
-        handleCreateNewPrompt();
+        handleCreateNewSkill();
       } else if (isEditingNewVersion) {
         handleSaveNewVersion();
       }
@@ -128,24 +131,23 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     },
   }));
 
-  const handleCreateNewPrompt = async () => {
+  const handleCreateNewSkill = async () => {
     if (!title.trim() || !editingContent.trim()) return;
-    await createPrompt({ title, description, license, content: editingContent, tagIds: selectedTags });
+    await createSkill({ title, description, license, content: editingContent, tagIds: selectedTags });
     onSave();
   };
 
   const handleSaveNewVersion = async () => {
     if (!prompt || !title.trim() || !editingContent.trim()) return;
-    await updatePrompt({ promptId: prompt.id, title, description, license, content: editingContent, tagIds: selectedTags });
+    await updateSkill({ skillId: prompt.id, title, description, license, content: editingContent, tagIds: selectedTags });
     setIsEditingNewVersion(false);
     setContent(editingContent);
     onSave();
   };
 
-  // Save metadata (name/description/license) without creating a new version
   const handleSaveMetadata = async () => {
     if (!prompt || !title.trim()) return;
-    await updatePrompt({ promptId: prompt.id, title, description, license, content, tagIds: selectedTags });
+    await updateSkill({ skillId: prompt.id, title, description, license, content, tagIds: selectedTags });
     onSave();
   };
 
@@ -162,7 +164,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
 
   const handleDelete = async () => {
     if (prompt) {
-      await deletePrompt(prompt.id);
+      await deleteSkill(prompt.id);
       onCancel();
     }
   };
@@ -184,13 +186,13 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     setSelectedTags(newTags);
     setNewTagName('');
     if (prompt && !isNew && !isEditingNewVersion) {
-      await updateTags({ promptId: prompt.id, tagIds: newTags });
+      await updateTags({ skillId: prompt.id, tagIds: newTags });
     }
   };
 
   const handleRestoreVersion = async (versionId: string) => {
     if (!prompt) return;
-    await restoreVersion.mutateAsync({ promptId: prompt.id, versionId });
+    await restoreVersion.mutateAsync({ skillId: prompt.id, versionId });
     setSelectedVersionId(versionId);
     setViewingVersion(null);
     const restoredContent = versions?.find((v) => v.id === versionId)?.content || '';
@@ -199,7 +201,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
     setIsEditingNewVersion(false);
   };
 
-  const handleViewVersion = (version: PromptVersion) => {
+  const handleViewVersion = (version: SkillVersion) => {
     if (viewingVersion?.id === version.id) {
       setViewingVersion(null);
     } else {
@@ -218,7 +220,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
       : [...selectedTags, tagId];
     setSelectedTags(newTags);
     if (prompt && !isNew && !isEditingNewVersion) {
-      await updateTags({ promptId: prompt.id, tagIds: newTags });
+      await updateTags({ skillId: prompt.id, tagIds: newTags });
     }
   };
 
@@ -338,7 +340,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                   </p>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {/* Name */}
                     <div className="space-y-1">
                       <Label htmlFor="skill-name" className="text-xs">Name <span className="text-destructive">*</span></Label>
                       <Input
@@ -351,7 +352,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                       />
                     </div>
 
-                    {/* License */}
                     <div className="space-y-1">
                       <Label htmlFor="skill-license" className="text-xs">License <span className="text-muted-foreground">(optional)</span></Label>
                       <Input
@@ -365,7 +365,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     </div>
                   </div>
 
-                  {/* Description */}
                   <div className="space-y-1">
                     <Label htmlFor="skill-description" className="text-xs">Description <span className="text-destructive">*</span></Label>
                     <Textarea
@@ -380,7 +379,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     <p className="text-right text-xs text-muted-foreground">{description.length}/1024</p>
                   </div>
 
-                  {/* Tags */}
                   <div className="space-y-1">
                     <Label className="text-xs">Tags</Label>
                     <div className="flex flex-wrap gap-2">
@@ -422,7 +420,6 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     </div>
                   </div>
 
-                  {/* Save metadata button for existing skills (when not editing new version) */}
                   {!isNew && !isEditingNewVersion && !isViewingOldVersion && (
                     <div className="flex justify-end">
                       <Button size="sm" variant="secondary" onClick={handleSaveMetadata} disabled={isSaving || !title.trim()}>
@@ -442,65 +439,38 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
                     {isViewingOldVersion && (
                       <Button variant="outline" size="sm" onClick={stopViewing}>
                         <EyeOff className="mr-1 h-3 w-3" />
-                        Back to active version
-                      </Button>
-                    )}
-                    {isEditingNewVersion && (
-                      <Button variant="outline" size="sm" onClick={handleCancelNewVersion}>
-                        <X className="mr-1 h-3 w-3" />
-                        Cancel new version
+                        Stop viewing
                       </Button>
                     )}
                   </div>
 
-                  {isViewingOldVersion && (
-                    <div className="flex items-center gap-2 rounded-md bg-muted border border-border px-3 py-2 text-xs text-muted-foreground">
-                      <Eye className="h-3 w-3 shrink-0" />
-                      Viewing version {viewingVersion?.version_number} — read-only
-                    </div>
-                  )}
-                  {isEditingNewVersion && (
-                    <div className="flex items-center gap-2 rounded-md bg-muted border border-border px-3 py-2 text-xs text-muted-foreground">
-                      <Pencil className="h-3 w-3 shrink-0" />
-                      Editing a new version — saving will increment the version number
-                    </div>
+                  {isViewingOldVersion ? (
+                    <MarkdownPreview content={viewingVersion.content} />
+                  ) : isNew || isEditingNewVersion ? (
+                    <Textarea
+                      placeholder="Write your skill instructions here..."
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="flex-1 min-h-[300px] resize-none font-mono text-sm"
+                    />
+                  ) : (
+                    <MarkdownPreview content={content} />
                   )}
 
-                  <div className="flex-1 min-h-[200px]">
-                    {isNew || isEditingNewVersion ? (
-                      <Textarea
-                        placeholder="Write your skill instructions here..."
-                        value={editingContent}
-                        onChange={(e) => setEditingContent(e.target.value)}
-                        className="h-full min-h-[200px] resize-none font-mono text-sm"
-                      />
-                    ) : (
-                      <div className="h-full min-h-[200px] rounded-md border border-input bg-muted/30">
-                        <MarkdownPreview content={displayedContent} className="h-full" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Save buttons */}
                   {(isNew || isEditingNewVersion) && (
-                    <div className="flex justify-end border-t border-border pt-3">
-                      {isNew ? (
-                        <Button
-                          onClick={handleCreateNewPrompt}
-                          disabled={isSaving || !title.trim() || !editingContent.trim()}
-                        >
-                          <Save className="mr-2 h-4 w-4" />
-                          {isSaving ? 'Saving...' : 'Create skill'}
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={handleSaveNewVersion}
-                          disabled={isSaving || !title.trim() || !editingContent.trim()}
-                        >
-                          <Save className="mr-2 h-4 w-4" />
-                          {isSaving ? 'Saving...' : 'Save new version'}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                      {isEditingNewVersion && (
+                        <Button variant="ghost" onClick={handleCancelNewVersion}>
+                          Cancel
                         </Button>
                       )}
+                      <Button
+                        onClick={isNew ? handleCreateNewSkill : handleSaveNewVersion}
+                        disabled={isSaving || !title.trim() || !editingContent.trim()}
+                      >
+                        <Save className="mr-2 h-4 w-4" />
+                        {isSaving ? 'Saving...' : isNew ? 'Create skill' : 'Save new version'}
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -511,7 +481,7 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
             {!isNew && prompt && (
               <>
                 <TabsContent value="usage" className="flex-1 overflow-hidden p-0 mt-0">
-                  <PromptUsage promptId={prompt.id} />
+                  <SkillUsage skillId={prompt.id} />
                 </TabsContent>
 
                 <TabsContent value="examples" className="flex-1 overflow-hidden p-0 mt-0">
@@ -525,12 +495,12 @@ export const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(funct
 
                 <TabsContent value="notes" className="flex-1 overflow-hidden p-0 mt-0">
                   {activeVersion && (
-                    <AllVersionNotes promptId={prompt.id} activeVersionId={activeVersion.id} />
+                    <AllVersionNotes skillId={prompt.id} activeVersionId={activeVersion.id} />
                   )}
                 </TabsContent>
 
                 <TabsContent value="files" className="flex-1 overflow-hidden p-0 mt-0">
-                  <SkillFiles promptId={prompt.id} />
+                  <SkillFiles skillId={prompt.id} />
                 </TabsContent>
               </>
             )}

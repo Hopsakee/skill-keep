@@ -19,7 +19,7 @@ import { parseSkillZip, parseSkillFromGitHub, saveSkillToDatabase } from '@/util
 interface SkillImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImported?: (promptId: string) => void;
+  onImported?: (skillId: string) => void;
 }
 
 export function SkillImportDialog({ open, onOpenChange, onImported }: SkillImportDialogProps) {

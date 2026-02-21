@@ -1,19 +1,19 @@
-import type { ParsedMarkdown, PromptExportData } from '@/types';
+import type { ParsedMarkdown, SkillExportData } from '@/types';
 import { escapeYaml } from './format';
 
 /**
- * Convert a prompt to markdown format with YAML frontmatter
+ * Convert a skill to markdown format with YAML frontmatter
  */
-export function toMarkdown(prompt: PromptExportData): string {
+export function toMarkdown(skill: SkillExportData): string {
   return `---
-title: "${escapeYaml(prompt.title)}"
-tags: [${prompt.tags.map((t) => `"${escapeYaml(t)}"`).join(', ')}]
-created: "${prompt.created_at}"
-updated: "${prompt.updated_at}"
-version: ${prompt.version_number}
+title: "${escapeYaml(skill.title)}"
+tags: [${skill.tags.map((t) => `"${escapeYaml(t)}"`).join(', ')}]
+created: "${skill.created_at}"
+updated: "${skill.updated_at}"
+version: ${skill.version_number}
 ---
 
-${prompt.content}`;
+${skill.content}`;
 }
 
 /**

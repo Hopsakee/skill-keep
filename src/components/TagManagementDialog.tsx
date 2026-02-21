@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useTags, Tag } from '@/hooks/useLocalPrompts';
+import { useTags, Tag } from '@/hooks/useLocalSkills';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,6 @@ interface TagManagementDialogProps {
 function getRandomUnusedColor(usedColors: string[]): string {
   const availableColors = TAG_COLORS.filter(color => !usedColors.includes(color));
   if (availableColors.length === 0) {
-    // All colors used, pick a random one from the palette
     return TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
   }
   return availableColors[Math.floor(Math.random() * availableColors.length)];
@@ -51,7 +50,6 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
   const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
   const [customColorInput, setCustomColorInput] = useState('');
 
-  // Pick a random unused color when dialog opens
   const pickRandomColor = useCallback(() => {
     const usedColors = tags.map(t => t.color);
     return getRandomUnusedColor(usedColors);
@@ -90,7 +88,6 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
     if (!newTagName.trim()) return;
     await createTag({ name: newTagName.trim(), color: newTagColor });
     setNewTagName('');
-    // Pick a new random unused color for next tag
     setTimeout(() => {
       const usedColors = [...tags.map(t => t.color), newTagColor];
       setNewTagColor(getRandomUnusedColor(usedColors));
@@ -102,7 +99,6 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
   };
 
   const handleCustomColorApply = (tagId: string) => {
-    // Validate hex color
     const hexRegex = /^#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
     if (hexRegex.test(customColorInput)) {
       const color = customColorInput.startsWith('#') ? customColorInput : `#${customColorInput}`;
@@ -123,13 +119,12 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle>Tag beheer</DialogTitle>
+          <DialogTitle>Tag management</DialogTitle>
         </DialogHeader>
 
-        {/* Create new tag */}
         <div className="flex gap-2 items-center p-3 bg-muted/50 rounded-lg">
           <Input
-            placeholder="Nieuwe tag naam..."
+            placeholder="New tag name..."
             value={newTagName}
             onChange={(e) => setNewTagName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateTag()}
@@ -140,7 +135,7 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
               <button
                 className="w-7 h-7 rounded-full border-2 border-border hover:scale-110 transition-transform shrink-0"
                 style={{ backgroundColor: newTagColor }}
-                title="Klik om kleur te kiezen"
+                title="Click to choose color"
               />
             </PopoverTrigger>
             <PopoverContent className="w-auto p-3" align="end">
@@ -149,9 +144,7 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
                   {TAG_COLORS.map((color) => (
                     <button
                       key={color}
-                      onClick={() => {
-                        setNewTagColor(color);
-                      }}
+                      onClick={() => setNewTagColor(color)}
                       className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${
                         newTagColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
                       }`}
@@ -183,7 +176,7 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
           <div className="space-y-2">
             {tags.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-8">
-                Nog geen tags aangemaakt.
+                No tags created yet.
               </p>
             ) : (
               tags.map((tag, index) => (
@@ -191,12 +184,10 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
                   key={tag.id}
                   className="flex items-center gap-2 p-2 rounded-lg border border-border bg-background"
                 >
-                  {/* Index number for keyboard shortcut reference */}
                   <span className="text-xs text-muted-foreground w-4 text-center">
                     {index < 9 ? index + 1 : ''}
                   </span>
 
-                  {/* Color selector - using Popover for click-based interaction */}
                   <Popover 
                     open={colorPickerOpen === tag.id} 
                     onOpenChange={(isOpen) => {
@@ -245,7 +236,6 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
                     </PopoverContent>
                   </Popover>
 
-                  {/* Name */}
                   {editingId === tag.id ? (
                     <Input
                       value={editingName}
@@ -266,7 +256,6 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
                     </span>
                   )}
 
-                  {/* Actions */}
                   {editingId === tag.id ? (
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveEdit}>
@@ -285,18 +274,18 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Tag verwijderen?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete tag?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Dit verwijdert de tag "{tag.name}" van alle prompts.
+                            The tag "{tag.name}" will be removed from all skills.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDelete(tag.id)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
-                            Verwijderen
+                            Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -309,7 +298,7 @@ export function TagManagementDialog({ open, onOpenChange }: TagManagementDialogP
         </ScrollArea>
 
         <p className="text-xs text-muted-foreground">
-          Tip: Gebruik Alt+1-9 om tags snel toe te voegen/verwijderen bij een prompt.
+          Tip: Use Alt+1-9 to quickly toggle tags on a skill.
         </p>
       </DialogContent>
     </Dialog>

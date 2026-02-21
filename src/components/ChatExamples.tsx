@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChatExamples, ChatMessage } from '@/hooks/useLocalPrompts';
+import { useChatExamples, ChatMessage } from '@/hooks/useLocalSkills';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,14 +43,14 @@ export function ChatExamples({ versionId }: ChatExamplesProps) {
   };
 
   if (isLoading) {
-    return <div className="p-4 text-muted-foreground">Laden...</div>;
+    return <div className="p-4 text-muted-foreground">Loading...</div>;
   }
 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-4">
         <p className="text-sm text-muted-foreground">
-          Voeg chat-voorbeelden toe met user/assistant beurten om context te geven aan deze prompt.
+          Add chat examples with user/assistant turns to provide context for this skill.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export function ChatExamples({ versionId }: ChatExamplesProps) {
                 </Button>
               </div>
               <Textarea
-                placeholder={`${message.role === 'user' ? 'User' : 'Assistant'} bericht...`}
+                placeholder={`${message.role === 'user' ? 'User' : 'Assistant'} message...`}
                 value={message.content}
                 onChange={(e) => updateMessage(index, e.target.value)}
                 className="min-h-[80px] resize-none"
@@ -98,7 +98,7 @@ export function ChatExamples({ versionId }: ChatExamplesProps) {
 
           {messages.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
-              Nog geen chat-voorbeelden. Voeg een bericht toe om te beginnen.
+              No chat examples yet. Add a message to get started.
             </div>
           )}
         </div>
@@ -118,7 +118,7 @@ export function ChatExamples({ versionId }: ChatExamplesProps) {
           </div>
           <Button onClick={handleSave} disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Opslaan...' : 'Opslaan'}
+            {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>

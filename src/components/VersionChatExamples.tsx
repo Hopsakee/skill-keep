@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useChatExamples, useVersionChatExamples } from '@/hooks/useLocalPrompts';
+import { useChatExamples, useVersionChatExamples } from '@/hooks/useLocalSkills';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,14 +27,11 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
   const [showPrevious, setShowPrevious] = useState(false);
 
   useEffect(() => {
-    // Convert old format or load new format
     if (chatExample?.messages) {
       const msgs = chatExample.messages;
-      // Check if it's the new format (array of ChatExample objects)
       if (msgs.length > 0 && 'userPrompt' in msgs[0]) {
         setExamples(msgs as unknown as ChatExample[]);
       } else {
-        // Convert old format: pair up user/assistant messages
         const converted: ChatExample[] = [];
         for (let i = 0; i < msgs.length; i++) {
           if (msgs[i].role === 'user') {
@@ -55,12 +52,11 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Store as array of ChatExample objects
       await upsertChatExample({ 
         versionId, 
         messages: examples as unknown as { role: 'user' | 'assistant'; content: string }[] 
       });
-      toast.success('Chat-voorbeelden opgeslagen');
+      toast.success('Chat examples saved');
     } finally {
       setIsSaving(false);
     }
@@ -68,7 +64,6 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
 
   const addExample = () => {
     setExamples((prev) => [...prev, { userPrompt: '', assistantResponse: '' }]);
-    // Auto-expand new example
     setExpandedIndexes((prev) => new Set([...prev, examples.length]));
   };
 
@@ -110,31 +105,27 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
   const copyUserPrompts = () => {
     const previousExamples = getPreviousExamples();
     const userPrompts = previousExamples.map((ex) => ex.userPrompt).join('\n\n---\n\n');
-    
     if (userPrompts) {
       navigator.clipboard.writeText(userPrompts);
-      toast.success('User prompts gekopieerd naar clipboard');
+      toast.success('User prompts copied to clipboard');
     }
   };
 
   const importUserPrompts = () => {
     const previousExamples = getPreviousExamples();
     if (previousExamples.length === 0) return;
-    
     const newExamples: ChatExample[] = previousExamples.map((ex) => ({
       userPrompt: ex.userPrompt,
       assistantResponse: '',
     }));
-    
     const startIndex = examples.length;
     setExamples((prev) => [...prev, ...newExamples]);
-    // Expand newly imported examples
     setExpandedIndexes((prev) => {
       const next = new Set(prev);
       newExamples.forEach((_, i) => next.add(startIndex + i));
       return next;
     });
-    toast.success('User prompts geïmporteerd');
+    toast.success('User prompts imported');
   };
 
   const getPreviousExamples = (): ChatExample[] => {
@@ -143,7 +134,6 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
     if (msgs.length > 0 && 'userPrompt' in msgs[0]) {
       return msgs as unknown as ChatExample[];
     }
-    // Convert old format
     const converted: ChatExample[] = [];
     for (let i = 0; i < msgs.length; i++) {
       if (msgs[i].role === 'user') {
@@ -164,7 +154,7 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
   };
 
   if (isLoading) {
-    return <div className="p-4 text-muted-foreground">Laden...</div>;
+    return <div className="p-4 text-muted-foreground">Loading...</div>;
   }
 
   const previousExamples = getPreviousExamples();
@@ -173,18 +163,17 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-4">
         <p className="text-sm text-muted-foreground">
-          Voeg chat-voorbeelden toe (user prompt + assistant response). User prompts van vorige versies kun je eenvoudig hergebruiken.
+          Add chat examples (user prompt + assistant response). User prompts from previous versions can be easily reused.
         </p>
       </div>
 
-      {/* Previous version user prompts */}
       {previousVersionId && previousExamples.length > 0 && (
         <Collapsible open={showPrevious} onOpenChange={setShowPrevious}>
           <div className="border-b border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between rounded-none px-4 py-3">
                 <span className="text-sm font-medium">
-                  User prompts vorige versie ({previousExamples.length})
+                  User prompts from previous version ({previousExamples.length})
                 </span>
                 {showPrevious ? (
                   <ChevronUp className="h-4 w-4" />
@@ -206,11 +195,11 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
                 <div className="flex gap-2 pt-2">
                   <Button variant="outline" size="sm" onClick={copyUserPrompts}>
                     <Copy className="mr-1 h-3 w-3" />
-                    Kopieer
+                    Copy
                   </Button>
                   <Button variant="outline" size="sm" onClick={importUserPrompts}>
                     <Plus className="mr-1 h-3 w-3" />
-                    Importeer
+                    Import
                   </Button>
                 </div>
               </div>
@@ -219,16 +208,15 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
         </Collapsible>
       )}
 
-      {/* Expand/Collapse all buttons */}
       {examples.length > 0 && (
         <div className="flex gap-2 border-b border-border px-4 py-2">
           <Button variant="ghost" size="sm" onClick={expandAll}>
             <ChevronsUpDown className="mr-1 h-3 w-3" />
-            Alles uitklappen
+            Expand all
           </Button>
           <Button variant="ghost" size="sm" onClick={collapseAll}>
             <ChevronsUpDown className="mr-1 h-3 w-3" />
-            Alles inklappen
+            Collapse all
           </Button>
         </div>
       )}
@@ -242,7 +230,6 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
                 key={index}
                 className="rounded-lg border border-border overflow-hidden"
               >
-                {/* Header with preview */}
                 <div
                   className="flex items-start gap-2 p-3 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => toggleExpand(index)}
@@ -250,11 +237,11 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Voorbeeld {index + 1}
+                        Example {index + 1}
                       </span>
                     </div>
                     <p className="text-sm whitespace-pre-wrap text-foreground">
-                      {getPreviewLines(example.userPrompt || '(leeg)', 2)}
+                      {getPreviewLines(example.userPrompt || '(empty)', 2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -277,7 +264,6 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
                   </div>
                 </div>
 
-                {/* Expanded content */}
                 {isExpanded && (
                   <div className="p-4 space-y-4 border-t border-border">
                     <div>
@@ -306,7 +292,7 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
 
           {examples.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
-              Nog geen chat-voorbeelden. Voeg een voorbeeld toe om te beginnen.
+              No chat examples yet. Add an example to get started.
             </div>
           )}
         </div>
@@ -316,11 +302,11 @@ export function VersionChatExamples({ versionId, previousVersionId }: VersionCha
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={addExample}>
             <Plus className="mr-1 h-3 w-3" />
-            Nieuw voorbeeld
+            New example
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Opslaan...' : 'Opslaan'}
+            {isSaving ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>

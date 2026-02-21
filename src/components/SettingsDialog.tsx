@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
-import { useTags, usePrompts } from '@/hooks/useLocalPrompts';
+import { useTags, useSkills } from '@/hooks/useLocalSkills';
 import { useGitHubSync } from '@/hooks/useLocalGitHubSync';
 import { getDatabase, saveDatabase, generateId, clearDatabase } from '@/lib/database';
 import { DEFAULT_TAG_COLOR } from '@/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,37 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, FileJson, FileText, Github, Plus, Check, Loader2, Unlink, Key, RefreshCw, Database, Upload, AlertTriangle } from 'lucide-react';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
-// Escape YAML string values to prevent injection
 function escapeYamlString(str: string): string {
-  return str
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t');
+  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
 }
 
-// Full prompt data structure matching GitHub sync
-interface PromptFullData {
+interface SkillFullData {
   id: string;
   title: string;
   created_at: string;
@@ -74,50 +50,37 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { tags, deleteTag } = useTags();
-  const { prompts } = usePrompts();
+  const { skills } = useSkills();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const {
-    config,
-    repos,
-    username,
-    isLoading,
-    isSyncing,
-    tokenInput,
-    setTokenInput,
-    connectWithToken,
-    createRepo,
-    connectRepo,
-    disconnect,
-    sync,
+    config, repos, username, isLoading, isSyncing, tokenInput, setTokenInput,
+    connectWithToken, createRepo, connectRepo, disconnect, sync,
   } = useGitHubSync();
 
-  const [newRepoName, setNewRepoName] = useState('prompt-vault');
+  const [newRepoName, setNewRepoName] = useState('skill-keep');
   const [selectedRepo, setSelectedRepo] = useState<string>('');
   const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
-    if (open && config?.token && !config.connected && !username) {
-      // Token exists but not connected - fetch repos
-    }
+    if (open && config?.token && !config.connected && !username) {}
   }, [open, config, username]);
 
-  const getTagPromptCount = (tagId: string) => {
-    return prompts.filter((p) => p.tags?.some((t) => t.id === tagId)).length;
+  const getTagSkillCount = (tagId: string) => {
+    return skills.filter((s) => s.tags?.some((t) => t.id === tagId)).length;
   };
 
-  // Get all prompts with full data from SQLite (matching GitHub sync structure)
-  const getLocalPromptsFullData = async (): Promise<PromptFullData[]> => {
+  const getLocalSkillsFullData = async (): Promise<SkillFullData[]> => {
     const db = await getDatabase();
-    const promptsRes = db.exec('SELECT id, title, created_at, updated_at FROM prompts');
-    const versionsRes = db.exec('SELECT id, prompt_id, content, version_number, is_active, created_at FROM prompt_versions ORDER BY version_number ASC');
+    const skillsRes = db.exec('SELECT id, title, created_at, updated_at FROM skills');
+    const versionsRes = db.exec('SELECT id, skill_id, content, version_number, is_active, created_at FROM skill_versions ORDER BY version_number ASC');
     const tagsRes = db.exec('SELECT id, name, color FROM tags');
-    const linksRes = db.exec('SELECT prompt_id, tag_id FROM prompt_tags');
+    const linksRes = db.exec('SELECT skill_id, tag_id FROM skill_tags');
     const annotationsRes = db.exec('SELECT version_id, note FROM version_annotations');
     const chatExamplesRes = db.exec('SELECT version_id, messages FROM chat_examples');
-    const usageRes = db.exec('SELECT prompt_id, explanation FROM prompt_usage');
+    const usageRes = db.exec('SELECT skill_id, explanation FROM skill_usage');
 
-    if (!promptsRes[0]) return [];
+    if (!skillsRes[0]) return [];
 
     const versions = versionsRes[0]?.values || [];
     const allTags = tagsRes[0]?.values || [];
@@ -126,13 +89,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const chatExamples = chatExamplesRes[0]?.values || [];
     const usageData = usageRes[0]?.values || [];
 
-    const result: PromptFullData[] = [];
+    const result: SkillFullData[] = [];
 
-    for (const row of promptsRes[0].values) {
+    for (const row of skillsRes[0].values) {
       const [id, title, created_at, updated_at] = row as string[];
       
-      // Get all versions for this prompt
-      const promptVersions = versions
+      const skillVersions = versions
         .filter((v) => v[1] === id)
         .map((v) => {
           const versionId = v[0] as string;
@@ -143,12 +105,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           if (chatExample) {
             try {
               const messagesRaw = chatExample[1];
-              if (typeof messagesRaw === 'string') {
-                parsedMessages = JSON.parse(messagesRaw);
-              }
-            } catch {
-              parsedMessages = [];
-            }
+              if (typeof messagesRaw === 'string') parsedMessages = JSON.parse(messagesRaw);
+            } catch { parsedMessages = []; }
           }
 
           return {
@@ -161,23 +119,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           };
         });
 
-      // Get tags with colors
       const tagIds = links.filter((l) => l[0] === id).map((l) => l[1]);
-      const promptTags = allTags
+      const skillTags = allTags
         .filter((t) => tagIds.includes(t[0]))
         .map((t) => ({ name: t[1] as string, color: (t[2] as string) || DEFAULT_TAG_COLOR }));
 
-      // Get usage explanation
       const usage = usageData.find((u) => u[0] === id);
 
       result.push({
-        id,
-        title,
-        created_at,
-        updated_at,
-        tags: promptTags,
+        id, title, created_at, updated_at,
+        tags: skillTags,
         usage_explanation: usage ? (usage[1] as string | null) : null,
-        versions: promptVersions,
+        versions: skillVersions,
       });
     }
 
@@ -185,51 +138,37 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const exportAsJson = async () => {
-    const fullData = await getLocalPromptsFullData();
-    const exportData = {
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      prompts: fullData,
-    };
-
+    const fullData = await getLocalSkillsFullData();
+    const exportData = { version: 2, exportedAt: new Date().toISOString(), skills: fullData };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `prompt-vault-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `skill-keep-export-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const exportAsMarkdown = async () => {
     const zip = new JSZip();
-    const fullData = await getLocalPromptsFullData();
-
-    for (const p of fullData) {
-      const activeVersion = p.versions.find(v => v.is_active) || p.versions[p.versions.length - 1];
-      
+    const fullData = await getLocalSkillsFullData();
+    for (const s of fullData) {
+      const activeVersion = s.versions.find(v => v.is_active) || s.versions[s.versions.length - 1];
       const frontmatter = [
-        '---',
-        `title: "${escapeYamlString(p.title)}"`,
-        `tags: [${p.tags?.map((t) => `"${escapeYamlString(t.name)}"`).join(', ') || ''}]`,
-        `created: ${p.created_at}`,
-        `updated: ${p.updated_at}`,
-        `version: ${activeVersion?.version_number || 1}`,
-        '---',
-        '',
+        '---', `title: "${escapeYamlString(s.title)}"`,
+        `tags: [${s.tags?.map((t) => `"${escapeYamlString(t.name)}"`).join(', ') || ''}]`,
+        `created: ${s.created_at}`, `updated: ${s.updated_at}`,
+        `version: ${activeVersion?.version_number || 1}`, '---', '',
       ].join('\n');
-
       const content = frontmatter + (activeVersion?.content || '');
-      const fileName = `${p.title.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '-')}.md`;
-      
+      const fileName = `${s.title.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '-')}.md`;
       zip.file(fileName, content);
     }
-
     const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `prompt-vault-${new Date().toISOString().split('T')[0]}.zip`;
+    a.download = `skill-keep-${new Date().toISOString().split('T')[0]}.zip`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -241,7 +180,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `prompt-vault-${new Date().toISOString().split('T')[0]}.sqlite`;
+    a.download = `skill-keep-${new Date().toISOString().split('T')[0]}.sqlite`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -251,13 +190,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     try {
       await clearDatabase();
       queryClient.invalidateQueries();
-      toast({ title: 'Database gewist', description: 'De lokale database is leeggemaakt.' });
+      toast({ title: 'Database cleared', description: 'The local database has been emptied.' });
       onOpenChange(false);
-      // Reload the page to reinitialize everything
       window.location.reload();
     } catch (error) {
       console.error('Failed to clear database:', error);
-      toast({ variant: 'destructive', title: 'Fout', description: 'Kon database niet wissen.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not clear database.' });
     } finally {
       setIsClearing(false);
     }
@@ -266,126 +204,88 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const handleImportJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     try {
       const text = await file.text();
       const data = JSON.parse(text);
       
-      // Check if it's the new format (version 2) or old format
-      if (data.version === 2 && Array.isArray(data.prompts)) {
+      if (data.version === 2 && (Array.isArray(data.skills) || Array.isArray(data.prompts))) {
         const db = await getDatabase();
+        const items = data.skills || data.prompts;
         
-        for (const prompt of data.prompts as PromptFullData[]) {
-          const promptId = prompt.id || generateId();
+        for (const skill of items as SkillFullData[]) {
+          const skillId = skill.id || generateId();
           const now = new Date().toISOString();
 
-          // Insert prompt
-          db.run('INSERT OR REPLACE INTO prompts (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)', [
-            promptId,
-            prompt.title,
-            prompt.created_at || now,
-            prompt.updated_at || now,
+          db.run('INSERT OR REPLACE INTO skills (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)', [
+            skillId, skill.title, skill.created_at || now, skill.updated_at || now,
           ]);
 
-          // Insert all versions
-          for (const version of prompt.versions) {
+          for (const version of skill.versions) {
             const versionId = generateId();
             db.run(
-              'INSERT INTO prompt_versions (id, prompt_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-              [versionId, promptId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
+              'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+              [versionId, skillId, version.content, version.version_number, version.is_active ? 1 : 0, version.created_at || now]
             );
-
-            // Insert annotation if exists
             if (version.annotation) {
               db.run('INSERT INTO version_annotations (id, version_id, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
-                generateId(),
-                versionId,
-                version.annotation,
-                now,
-                now,
+                generateId(), versionId, version.annotation, now, now,
               ]);
             }
-
-            // Insert chat examples if exist
             if (version.chat_examples && version.chat_examples.length > 0) {
               db.run('INSERT INTO chat_examples (id, version_id, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
-                generateId(),
-                versionId,
-                JSON.stringify(version.chat_examples),
-                now,
-                now,
+                generateId(), versionId, JSON.stringify(version.chat_examples), now, now,
               ]);
             }
           }
 
-          // Insert usage explanation if exists
-          if (prompt.usage_explanation) {
-            db.run('INSERT INTO prompt_usage (id, prompt_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
-              generateId(),
-              promptId,
-              prompt.usage_explanation,
-              now,
-              now,
+          if (skill.usage_explanation) {
+            db.run('INSERT INTO skill_usage (id, skill_id, explanation, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
+              generateId(), skillId, skill.usage_explanation, now, now,
             ]);
           }
 
-          // Insert tags
-          for (const tag of prompt.tags) {
+          for (const tag of skill.tags) {
             const existingTag = db.exec('SELECT id FROM tags WHERE name = ?', [tag.name]);
             let tagId: string;
-
             if (existingTag[0]?.values[0]) {
               tagId = existingTag[0].values[0][0] as string;
             } else {
               tagId = generateId();
               db.run('INSERT INTO tags (id, name, color, created_at) VALUES (?, ?, ?, ?)', [tagId, tag.name, tag.color || DEFAULT_TAG_COLOR, now]);
             }
-
-            db.run('INSERT OR IGNORE INTO prompt_tags (id, prompt_id, tag_id) VALUES (?, ?, ?)', [
-              generateId(),
-              promptId,
-              tagId,
-            ]);
+            db.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [generateId(), skillId, tagId]);
           }
         }
 
         await saveDatabase();
         queryClient.invalidateQueries();
-        toast({ title: 'Import voltooid', description: `${data.prompts.length} prompts geïmporteerd.` });
+        toast({ title: 'Import complete', description: `${items.length} skills imported.` });
       } else {
-        toast({ variant: 'destructive', title: 'Ongeldig formaat', description: 'Dit bestand heeft niet het juiste formaat.' });
+        toast({ variant: 'destructive', title: 'Invalid format', description: 'This file does not have the correct format.' });
       }
     } catch (error) {
       console.error('Import failed:', error);
-      toast({ variant: 'destructive', title: 'Import mislukt', description: 'Kon het bestand niet importeren.' });
+      toast({ variant: 'destructive', title: 'Import failed', description: 'Could not import the file.' });
     }
-    
-    // Reset the input
     event.target.value = '';
   };
 
   const handleConnectToken = async () => {
-    if (tokenInput.trim()) {
-      await connectWithToken(tokenInput.trim());
-    }
+    if (tokenInput.trim()) await connectWithToken(tokenInput.trim());
   };
 
-  const handleCreateRepo = async () => {
-    await createRepo(newRepoName);
-  };
+  const handleCreateRepo = async () => { await createRepo(newRepoName); };
 
   const handleConnectRepo = () => {
-    if (selectedRepo) {
-      connectRepo(selectedRepo);
-    }
+    if (selectedRepo) connectRepo(selectedRepo);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Instellingen</DialogTitle>
-          <DialogDescription>Beheer tags, GitHub sync en export</DialogDescription>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>Manage tags, GitHub sync and export</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="github" className="mt-4">
@@ -403,128 +303,82 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <Github className="h-5 w-5" />
                     <div className="flex-1">
                       <div className="font-medium">{config.owner}/{config.repo}</div>
-                      <div className="text-sm text-muted-foreground">Gekoppeld</div>
+                      <div className="text-sm text-muted-foreground">Connected</div>
                     </div>
                     <Check className="h-5 w-5 text-green-600" />
                   </div>
-
                   <Button onClick={sync} disabled={isSyncing} className="w-full">
-                    {isSyncing ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                    )}
-                    Synchroniseren met GitHub
+                    {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Sync with GitHub
                   </Button>
-
                   <p className="text-xs text-muted-foreground">
-                    Prompts worden opgeslagen als Markdown bestanden. Bij pull worden conflicten gemerged.
+                    Skills are saved as Markdown files. Conflicts are merged on pull.
                   </p>
-
                   <Button variant="outline" onClick={disconnect} className="w-full">
                     <Unlink className="mr-2 h-4 w-4" />
-                    Ontkoppel repository
+                    Disconnect repository
                   </Button>
                 </div>
               ) : username ? (
                 <div className="space-y-4">
                   <div className="text-sm text-muted-foreground">
-                    Ingelogd als <span className="font-medium text-foreground">{username}</span>
+                    Logged in as <span className="font-medium text-foreground">{username}</span>
                   </div>
-
                   {repos.length > 0 && (
                     <div className="space-y-2">
-                      <Label>Bestaande repository kiezen</Label>
+                      <Label>Choose existing repository</Label>
                       <div className="flex gap-2">
                         <Select value={selectedRepo} onValueChange={setSelectedRepo}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Selecteer repository..." />
-                          </SelectTrigger>
+                          <SelectTrigger className="flex-1"><SelectValue placeholder="Select repository..." /></SelectTrigger>
                           <SelectContent>
                             {repos.map((repo) => (
-                              <SelectItem key={repo.full_name} value={repo.full_name}>
-                                {repo.full_name}
-                              </SelectItem>
+                              <SelectItem key={repo.full_name} value={repo.full_name}>{repo.full_name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <Button onClick={handleConnectRepo} disabled={!selectedRepo}>
-                          Koppel
-                        </Button>
+                        <Button onClick={handleConnectRepo} disabled={!selectedRepo}>Connect</Button>
                       </div>
                     </div>
                   )}
-
                   <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">of</span>
-                    </div>
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
                   </div>
-
                   <div className="space-y-2">
-                    <Label>Nieuwe repository aanmaken</Label>
+                    <Label>Create new repository</Label>
                     <div className="flex gap-2">
-                      <Input
-                        value={newRepoName}
-                        onChange={(e) => setNewRepoName(e.target.value)}
-                        placeholder="prompt-vault"
-                      />
+                      <Input value={newRepoName} onChange={(e) => setNewRepoName(e.target.value)} placeholder="skill-keep" />
                       <Button onClick={handleCreateRepo} disabled={!newRepoName.trim() || isLoading}>
-                        <Plus className="mr-1 h-4 w-4" />
-                        Aanmaken
+                        <Plus className="mr-1 h-4 w-4" />Create
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Maakt een private repository aan onder {username}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Creates a private repository under {username}</p>
                   </div>
-
-                  <Button variant="outline" onClick={disconnect} className="w-full">
-                    Andere token gebruiken
-                  </Button>
+                  <Button variant="outline" onClick={disconnect} className="w-full">Use different token</Button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Koppel een GitHub repository om je database automatisch te synchroniseren. 
-                    Je hebt een Personal Access Token nodig met 'repo' rechten.
+                    Connect a GitHub repository to automatically sync your skills. 
+                    You need a Personal Access Token with 'repo' permissions.
                   </p>
-
                   {isLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
+                    <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                   ) : (
                     <div className="space-y-2">
                       <Label>GitHub Personal Access Token</Label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            type="password"
-                            value={tokenInput}
-                            onChange={(e) => setTokenInput(e.target.value)}
-                            placeholder="ghp_xxxxxxxxxxxx"
-                            className="pl-9"
-                          />
+                          <Input type="password" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} placeholder="ghp_xxxxxxxxxxxx" className="pl-9" />
                         </div>
-                        <Button onClick={handleConnectToken} disabled={!tokenInput.trim()}>
-                          Verbind
-                        </Button>
+                        <Button onClick={handleConnectToken} disabled={!tokenInput.trim()}>Connect</Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        <a 
-                          href="https://github.com/settings/tokens/new?scopes=repo&description=Prompt%20Vault" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          Maak een token aan
+                        <a href="https://github.com/settings/tokens/new?scopes=repo&description=Skill%20Keep" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          Create a token
                         </a>
-                        {' '}met 'repo' rechten. Je token wordt lokaal opgeslagen.
+                        {' '}with 'repo' permissions. Your token is stored locally.
                       </p>
                     </div>
                   )}
@@ -536,43 +390,27 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <TabsContent value="tags" className="mt-4">
             <ScrollArea className="h-64">
               {tags.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  Nog geen tags aangemaakt
-                </div>
+                <div className="py-8 text-center text-muted-foreground">No tags created yet</div>
               ) : (
                 <div className="space-y-2">
                   {tags.map((tag) => (
-                    <div
-                      key={tag.id}
-                      className="flex items-center justify-between rounded-lg border border-border p-3"
-                    >
+                    <div key={tag.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">{tag.name}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {getTagPromptCount(tag.id)} prompts
-                        </span>
+                        <span className="text-sm text-muted-foreground">{getTagSkillCount(tag.id)} skills</span>
                       </div>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Tag verwijderen?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              De tag "{tag.name}" wordt verwijderd van alle prompts.
-                            </AlertDialogDescription>
+                            <AlertDialogTitle>Delete tag?</AlertDialogTitle>
+                            <AlertDialogDescription>The tag "{tag.name}" will be removed from all skills.</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Annuleren</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteTag(tag.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Verwijderen
-                            </AlertDialogAction>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteTag(tag.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -585,100 +423,59 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
           <TabsContent value="export" className="mt-4">
             <div className="space-y-6">
-              {/* Export Section */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-medium">Exporteren</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Exporteer al je prompts inclusief versiegeschiedenis, notities en chat voorbeelden.
-                  </p>
+                  <h4 className="text-sm font-medium">Export</h4>
+                  <p className="text-xs text-muted-foreground">Export all your skills including version history, notes and chat examples.</p>
                 </div>
                 <div className="space-y-2">
                   <Button variant="outline" className="w-full justify-start" onClick={exportAsJson}>
-                    <FileJson className="mr-2 h-4 w-4" />
-                    Download als JSON
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Volledige data
-                    </span>
+                    <FileJson className="mr-2 h-4 w-4" />Download as JSON<span className="ml-auto text-xs text-muted-foreground">Full data</span>
                   </Button>
                   <Button variant="outline" className="w-full justify-start" onClick={exportAsSqlite}>
-                    <Database className="mr-2 h-4 w-4" />
-                    Download als SQLite
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Database bestand
-                    </span>
+                    <Database className="mr-2 h-4 w-4" />Download as SQLite<span className="ml-auto text-xs text-muted-foreground">Database file</span>
                   </Button>
                   <Button variant="outline" className="w-full justify-start" onClick={exportAsMarkdown}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Download als Markdown
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      Alleen actieve versies
-                    </span>
+                    <FileText className="mr-2 h-4 w-4" />Download as Markdown<span className="ml-auto text-xs text-muted-foreground">Active versions only</span>
                   </Button>
                 </div>
               </div>
 
-              {/* Import Section */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-medium">Importeren</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Importeer prompts uit een eerder geëxporteerd JSON bestand.
-                  </p>
+                  <h4 className="text-sm font-medium">Import</h4>
+                  <p className="text-xs text-muted-foreground">Import skills from a previously exported JSON file.</p>
                 </div>
                 <div>
                   <Label htmlFor="import-json" className="cursor-pointer">
                     <Button variant="outline" className="w-full justify-start" asChild>
-                      <span>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Importeer JSON bestand
-                      </span>
+                      <span><Upload className="mr-2 h-4 w-4" />Import JSON file</span>
                     </Button>
                   </Label>
-                  <Input
-                    id="import-json"
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    onChange={handleImportJson}
-                  />
+                  <Input id="import-json" type="file" accept=".json" className="hidden" onChange={handleImportJson} />
                 </div>
               </div>
 
-              {/* Clear Database Section */}
               <div className="space-y-3 border-t border-border pt-4">
                 <div>
-                  <h4 className="text-sm font-medium text-destructive">Database wissen</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Wis de lokale database om een schone import of sync uit te voeren.
-                  </p>
+                  <h4 className="text-sm font-medium text-destructive">Clear database</h4>
+                  <p className="text-xs text-muted-foreground">Clear the local database for a clean import or sync.</p>
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive" disabled={isClearing}>
-                      {isClearing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <AlertTriangle className="mr-2 h-4 w-4" />
-                      )}
-                      Database wissen
+                      {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                      Clear database
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Database wissen?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Alle lokale data wordt permanent verwijderd. Zorg dat je een backup hebt via export of GitHub sync voordat je doorgaat.
-                      </AlertDialogDescription>
+                      <AlertDialogTitle>Clear database?</AlertDialogTitle>
+                      <AlertDialogDescription>All local data will be permanently deleted. Make sure you have a backup via export or GitHub sync before proceeding.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Annuleren</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleClearDatabase}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Ja, wis alles
-                      </AlertDialogAction>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearDatabase} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, clear everything</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

@@ -39,7 +39,7 @@ export function SyncConflictDialog({
   const isRemoteNewer = remoteDate > localDate;
 
   const formatDate = (date: Date) =>
-    date.toLocaleDateString('nl-NL', {
+    date.toLocaleDateString('en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -53,29 +53,28 @@ export function SyncConflictDialog({
         <DialogHeader>
           <DialogTitle>Conflict: {conflict.title}</DialogTitle>
           <DialogDescription>
-            Dit prompt bestaat zowel lokaal als op GitHub met verschillende inhoud.
+            This skill exists both locally and on GitHub with different content.
             <br />
-            Conflict {currentIndex + 1} van {conflicts.length}
+            Conflict {currentIndex + 1} of {conflicts.length}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          {/* Local version */}
           <div className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Lokale versie</h3>
+              <h3 className="font-semibold">Local version</h3>
               <div className="flex gap-1">
-                {isLocalNewer && <Badge variant="default">Nieuwer</Badge>}
+                {isLocalNewer && <Badge variant="default">Newer</Badge>}
                 {conflict.local.wordCount > conflict.remote.wordCount && (
-                  <Badge variant="secondary">Meer woorden</Badge>
+                  <Badge variant="secondary">More words</Badge>
                 )}
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Bijgewerkt: {formatDate(localDate)}
+              Updated: {formatDate(localDate)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {conflict.local.wordCount} woorden
+              {conflict.local.wordCount} words
             </p>
             <div className="bg-muted rounded p-2 max-h-32 overflow-y-auto">
               <pre className="text-xs whitespace-pre-wrap">
@@ -84,26 +83,25 @@ export function SyncConflictDialog({
               </pre>
             </div>
             <Button onClick={() => onResolve('local')} variant="outline" className="w-full">
-              Lokaal behouden
+              Keep local
             </Button>
           </div>
 
-          {/* Remote version */}
           <div className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">GitHub versie</h3>
+              <h3 className="font-semibold">GitHub version</h3>
               <div className="flex gap-1">
-                {isRemoteNewer && <Badge variant="default">Nieuwer</Badge>}
+                {isRemoteNewer && <Badge variant="default">Newer</Badge>}
                 {conflict.remote.wordCount > conflict.local.wordCount && (
-                  <Badge variant="secondary">Meer woorden</Badge>
+                  <Badge variant="secondary">More words</Badge>
                 )}
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Bijgewerkt: {formatDate(remoteDate)}
+              Updated: {formatDate(remoteDate)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {conflict.remote.wordCount} woorden
+              {conflict.remote.wordCount} words
             </p>
             <div className="bg-muted rounded p-2 max-h-32 overflow-y-auto">
               <pre className="text-xs whitespace-pre-wrap">
@@ -112,17 +110,17 @@ export function SyncConflictDialog({
               </pre>
             </div>
             <Button onClick={() => onResolve('remote')} variant="outline" className="w-full">
-              GitHub behouden
+              Keep GitHub
             </Button>
           </div>
         </div>
 
         <div className="flex justify-between mt-4">
           <Button variant="ghost" onClick={onCancel}>
-            Annuleren
+            Cancel
           </Button>
           <Button variant="secondary" onClick={() => onResolve('both')}>
-            Beide behouden
+            Keep both
           </Button>
         </div>
       </DialogContent>
