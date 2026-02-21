@@ -1,33 +1,36 @@
-# Prompt Library (Skill Keep)
+# Skill Keep
 
-A local-first web application for managing, versioning, and organizing AI prompts — sometimes called "skills." Built for prompt engineers, AI practitioners, and power users who need a structured, version-controlled library of their prompts without relying on cloud accounts or third-party storage.
+A local-first web application for managing, versioning, and organizing AI skills (structured prompts and instructions). Built for prompt engineers, AI practitioners, and anyone who needs a version-controlled library of their AI skills — without cloud accounts or third-party storage.
 
 ## The Problem
 
-As AI tools become central to daily workflows, people accumulate dozens or hundreds of carefully crafted prompts. These prompts are scattered across text files, notes apps, and chat histories with no versioning, tagging, or search. Updating a prompt means losing the previous version. Sharing or backing up requires manual copy-paste.
+As AI tools become central to daily workflows, people accumulate dozens or hundreds of carefully crafted prompts, system instructions, and agent skills. These end up scattered across text files, notes apps, and chat histories — with no versioning, tagging, or search. Updating a skill means losing the previous version. Sharing or backing up requires manual copy-paste.
 
-**Prompt Library** solves this by giving you a dedicated, offline-capable prompt manager with built-in version control, tagging, annotation, and optional GitHub synchronization.
+**Skill Keep** solves this by providing a dedicated, offline-capable skill manager with built-in version control, tagging, annotations, and optional GitHub synchronization.
 
 ## Who Is This For?
 
-- **Prompt engineers** who iterate on prompts and need to track what changed between versions
-- **Developers** integrating AI into products who maintain a library of system prompts
-- **AI power users** who want to organize, tag, and quickly retrieve their best prompts
-- **Teams** who want to sync a shared prompt library via a GitHub repository
+- **Prompt engineers** who iterate on skills and need to track what changed between versions
+- **Developers** integrating AI into products who maintain a library of system prompts and agent instructions
+- **AI power users** who want to organize, tag, and quickly retrieve their best skills
+- **Teams** who want to sync a shared skill library via a GitHub repository
 
 ## Features
 
 - **Version control** — Every edit creates a new version. Browse history, compare, and restore any previous version.
-- **Tagging & filtering** — Organize prompts with custom tags for fast discovery.
+- **Tagging & filtering** — Organize skills with custom color-coded tags for fast discovery.
 - **Version annotations** — Add notes to specific versions to document why a change was made.
-- **Chat examples** — Attach example conversations to prompts as usage documentation.
-- **Skill files** — Attach supporting files to prompts.
-- **GitHub sync** — Push/pull your prompt library to a GitHub repo as Markdown files for backup and collaboration.
-- **Markdown preview** — Rich preview with syntax highlighting for prompts written in Markdown.
+- **Chat examples** — Attach example conversations to skills as usage documentation.
+- **Skill files** — Attach supporting reference files to skills.
+- **Usage notes** — Document what a skill does and how to use it, persisted across versions.
+- **GitHub sync** — Push/pull your skill library to a GitHub repo as Markdown files for backup and collaboration.
+- **GitHub import** — Import skills directly from public GitHub repositories.
+- **Markdown preview** — Rich preview with syntax highlighting for skills written in Markdown.
 - **Keyboard shortcuts** — Full keyboard navigation for power users.
 - **Dark / light mode** — Automatic theme detection with manual override.
 - **Offline-first** — All data lives in your browser (SQLite via IndexedDB). No account required, no data leaves your machine unless you enable GitHub sync.
-- **Import / export** — Import and export prompts as structured skill packages (ZIP).
+- **Import / export** — Import and export skills as structured packages (ZIP) or Markdown files.
+- **PWA support** — Installable as a progressive web app for desktop-like experience.
 
 ## Tech Stack
 
@@ -41,11 +44,11 @@ As AI tools become central to daily workflows, people accumulate dozens or hundr
 
 ## ⚠️ Disclaimer
 
-**This project was "vibe-coded" using [Lovable](https://lovable.dev).** The code has been checked for security issues using Lovable's built-in security scanner, but the repository owner has **not manually reviewed all generated code**. Use at your own discretion and consider performing your own security audit before deploying in sensitive environments.
+**This project was vibe-coded using [Lovable](https://lovable.dev).** The code has been checked for security issues using Lovable's built-in security scanner, but the repository owner has **not manually reviewed all generated code**. Use at your own discretion and consider performing your own security audit before deploying in sensitive environments.
 
 ## Installation & Self-Hosting
 
-This application is a static single-page app with **no backend requirement**. It can be installed and used entirely without the Lovable platform.
+This application is a static single-page app with **no backend requirement** for core functionality. It can be installed and used entirely without the Lovable platform.
 
 ### Prerequisites
 
@@ -77,32 +80,32 @@ The output in `dist/` is a fully static site. Deploy it to any static hosting se
 
 ### Environment Variables
 
-**None are required.** The app uses browser-local SQLite storage. The `.env` file in the repository contains legacy Lovable Cloud variables that are not used by the application and can be safely ignored.
+**None are required for core functionality.** The app uses browser-local SQLite storage. The `.env` file in the repository contains Lovable Cloud variables that are not used by the core application and can be safely ignored.
 
-### Supabase Leftovers
+### Supabase / Lovable Cloud Files
 
-You may notice Supabase-related files (`src/integrations/supabase/`, `supabase/config.toml`, `supabase/migrations/`). These are **obsolete artifacts** from the Lovable Cloud build environment and are not used by the application. They remain because they are read-only and managed by Lovable. You can safely ignore them.
+You will notice Supabase-related files (`src/integrations/supabase/`, `supabase/config.toml`, `supabase/migrations/`, `supabase/functions/`). These are artifacts from the Lovable Cloud build environment. The `github-fetch-skill` edge function powers the GitHub import feature when hosted on Lovable Cloud. For self-hosted deployments, the core skill management features work fully without these. The files remain because they are read-only and managed by Lovable.
 
 ## GitHub Sync Setup
 
-To optionally sync your prompts with a GitHub repository:
+To optionally sync your skills with a GitHub repository:
 
-1. Open **Settings** (gear icon) → **GitHub** tab
+1. Open **Settings** (gear icon) → **GitHub** section
 2. Enter a GitHub **Personal Access Token** (requires `repo` scope)
 3. Enter the repository in `owner/repo` format
 4. Click **Sync** to push/pull changes
 
-Prompts are stored as Markdown files in the `/prompts` folder of your repository.
+Skills are stored as Markdown files in the `skills-latest/` folder (raw content) and `skills-data/` folder (full metadata) of your repository.
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl/Cmd + N` | Create new prompt |
-| `Ctrl/Cmd + S` | Save current prompt |
-| `Ctrl/Cmd + C` | Copy prompt content |
+| `Ctrl/Cmd + N` | Create new skill |
+| `Ctrl/Cmd + S` | Save current skill |
+| `Ctrl/Cmd + C` | Copy skill content |
 | `Ctrl/Cmd + K` | Focus search |
-| `↑ / ↓` | Navigate prompt list |
+| `↑ / ↓` | Navigate skill list |
 | `Escape` | Clear selection / close dialogs |
 | `?` | Show keyboard shortcuts help |
 
