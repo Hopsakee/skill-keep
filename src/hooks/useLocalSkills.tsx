@@ -87,6 +87,9 @@ export function useSkills() {
 
   const createSkillMutation = useMutation({
     mutationFn: async ({ title, description, license, content, tagIds }: { title: string; description?: string; license?: string; content: string; tagIds?: string[] }) => {
+      const trimmedTitle = (title || '').trim();
+      if (!trimmedTitle) throw new Error('Skill name is required');
+      
       const db = await getDatabase();
       const skillId = generateId();
       const versionId = generateId();
@@ -94,7 +97,7 @@ export function useSkills() {
 
       db.run('INSERT INTO skills (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
         skillId,
-        title,
+        trimmedTitle,
         description || '',
         license || '',
         now,
@@ -145,9 +148,11 @@ export function useSkills() {
       tagIds?: string[];
     }) => {
       const db = await getDatabase();
+      const trimmedTitle = (title || '').trim();
+      if (!trimmedTitle) throw new Error('Skill name is required');
       const now = new Date().toISOString();
 
-      db.run('UPDATE skills SET title = ?, description = ?, license = ?, updated_at = ? WHERE id = ?', [title, description || '', license || '', now, skillId]);
+      db.run('UPDATE skills SET title = ?, description = ?, license = ?, updated_at = ? WHERE id = ?', [trimmedTitle, description || '', license || '', now, skillId]);
 
       // Get current active version ID for copying chat examples
       const activeVersionResult = db.exec(
