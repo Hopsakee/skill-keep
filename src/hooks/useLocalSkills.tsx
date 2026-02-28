@@ -27,7 +27,6 @@ export function useSkills() {
       const db = await getDatabase();
       
       const skillsResult = db.exec('SELECT id, title, description, license, created_at, updated_at FROM skills ORDER BY updated_at DESC');
-      console.log('[skillsQuery] skills count:', skillsResult[0]?.values?.length ?? 0);
       const versionsResult = db.exec('SELECT id, skill_id, content, version_number, is_active, created_at FROM skill_versions WHERE is_active = 1');
       const tagsResult = db.exec('SELECT id, name, color FROM tags');
       const skillTagsResult = db.exec('SELECT skill_id, tag_id FROM skill_tags');
@@ -88,8 +87,6 @@ export function useSkills() {
 
   const createSkillMutation = useMutation({
     mutationFn: async ({ title, description, license, content, tagIds }: { title: string; description?: string; license?: string; content: string; tagIds?: string[] }) => {
-      console.log('[createSkill] called with title:', JSON.stringify(title), 'content length:', content?.length);
-      console.trace('[createSkill] stack trace');
       const trimmedTitle = (title || '').trim();
       if (!trimmedTitle) throw new Error('Skill name is required');
       
@@ -98,33 +95,14 @@ export function useSkills() {
       const versionId = generateId();
       const now = new Date().toISOString();
 
-      
-      try {
-        db.run('INSERT INTO skills (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
-          skillId,
-          String(trimmedTitle),
-          description || '',
-          license || '',
-          now,
-          now,
-        ]);
-        console.log('[createSkill] rows modified after skills insert:', db.getRowsModified());
-      } catch (e) {
-        console.error('[createSkill] INSERT skills failed:', e);
-        throw e;
-      }
-
-      // Verify the insert worked
-      const verify = db.exec('SELECT id, title FROM skills WHERE id = ?', [skillId]);
-      console.log('[createSkill] verify after insert:', JSON.stringify(verify));
-      
-      // Also check total skills
-      const allSkills = db.exec('SELECT COUNT(*) FROM skills');
-      console.log('[createSkill] total skills in db:', JSON.stringify(allSkills));
-      
-      // Check table schema
-      const schema = db.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='skills'");
-      console.log('[createSkill] skills table schema:', JSON.stringify(schema));
+      db.run('INSERT INTO skills (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
+        skillId,
+        String(trimmedTitle),
+        description || '',
+        license || '',
+        now,
+        now,
+      ]);
 
       db.run(
         'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
