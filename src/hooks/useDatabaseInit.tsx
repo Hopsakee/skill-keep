@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { initDatabase } from '@/lib/database';
+import { getDatabase } from '@/lib/database';
 
 interface DatabaseContextType {
   isReady: boolean;
@@ -13,7 +13,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    initDatabase()
+    getDatabase()
       .then(() => setIsReady(true))
       .catch((err) => {
         console.error('Failed to initialize database:', err);

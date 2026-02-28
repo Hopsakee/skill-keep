@@ -2,7 +2,8 @@ import initSqlJs, { Database } from 'sql.js';
 import { openDB, IDBPDatabase } from 'idb';
 import { DB_NAME, STORE_NAME, DB_KEY, DEFAULT_TAG_COLOR } from '@/constants';
 
-let db: Database | null = null;
+// ── IndexedDB helpers ──────────────────────────────────────────────
+
 let idbConnection: IDBPDatabase | null = null;
 
 async function getIDB(): Promise<IDBPDatabase> {
@@ -18,8 +19,7 @@ async function getIDB(): Promise<IDBPDatabase> {
   return idbConnection;
 }
 
-async function saveToIndexedDB(): Promise<void> {
-  if (!db) return;
+async function saveToIndexedDB(db: Database): Promise<void> {
   const data = db.export();
   const idb = await getIDB();
   await idb.put(STORE_NAME, data, DB_KEY);
@@ -31,54 +31,61 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
   return data || null;
 }
 
-export async function initDatabase(): Promise<Database> {
-  console.log('[database] initDatabase called, db exists:', !!db);
-  if (db) return db;
+// ── Promise-based singleton ────────────────────────────────────────
 
-  const wasmUrl = (file: string) =>
-    file.endsWith('.wasm')
-      ? 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm'
-      : `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`;
+let dbPromise: Promise<Database> | null = null;
 
-  const SQL = await initSqlJs({ locateFile: wasmUrl });
+/**
+ * Returns the single Database instance. Safe to call concurrently —
+ * all callers share the same initialization promise.
+ */
+export function getDatabase(): Promise<Database> {
+  if (!dbPromise) {
+    dbPromise = createDatabase();
+  }
+  return dbPromise;
+}
+
+async function createDatabase(): Promise<Database> {
+  const SQL = await initSqlJs({
+    locateFile: (file: string) =>
+      file.endsWith('.wasm')
+        ? 'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.wasm'
+        : `https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/${file}`,
+  });
 
   const savedData = await loadFromIndexedDB();
-  console.log('[database] savedData from IndexedDB:', savedData ? `${savedData.length} bytes` : 'null');
+  let db: Database;
 
   if (savedData) {
     db = new SQL.Database(savedData);
-    
-    // Check if this is a compatible schema (v2 has the schema_version setting)
+
+    // Verify schema compatibility
     let isCompatible = false;
     try {
       const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
-      const version = versionCheck[0]?.values?.[0]?.[0];
-      isCompatible = version === '6';
-      console.log('[database] Schema version check:', version, 'compatible:', isCompatible);
-    } catch (e) {
-      console.log('[database] Schema version check failed:', e);
+      isCompatible = versionCheck[0]?.values?.[0]?.[0] === '6';
+    } catch {
+      // Table doesn't exist — incompatible
     }
+
     if (!isCompatible) {
-      console.log('[database] Incompatible schema detected, recreating database');
       db.close();
       db = new SQL.Database();
       const idb = await getIDB();
       await idb.delete(STORE_NAME, DB_KEY);
     }
   } else {
-    console.log('[database] No saved data, creating fresh database');
     db = new SQL.Database();
   }
 
-  // Ensure all tables exist and mark schema version
-  createTables();
-
+  createTables(db);
   return db;
 }
 
-function createTables(): void {
-  if (!db) return;
-  console.log('[database] Creating/verifying tables');
+// ── Schema ─────────────────────────────────────────────────────────
+
+function createTables(db: Database): void {
   db.run(`
     CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
@@ -176,22 +183,15 @@ function createTables(): void {
     )
   `);
 
-  // Mark schema version so future loads know this is a compatible database
   db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '6')");
-
-  saveToIndexedDB();
+  saveToIndexedDB(db);
 }
 
-
-export async function getDatabase(): Promise<Database> {
-  if (!db) {
-    return initDatabase();
-  }
-  return db;
-}
+// ── Public utilities ───────────────────────────────────────────────
 
 export async function saveDatabase(): Promise<void> {
-  await saveToIndexedDB();
+  const db = await getDatabase();
+  await saveToIndexedDB(db);
 }
 
 export function generateId(): string {
@@ -202,23 +202,26 @@ export async function clearDatabase(): Promise<void> {
   const idb = await getIDB();
   await idb.delete(STORE_NAME, DB_KEY);
 
-  if (db) {
+  if (dbPromise) {
+    const db = await dbPromise;
     db.close();
-    db = null;
   }
+  dbPromise = null;
 }
 
-export async function exportDatabaseAsJson(): Promise<string> {
-  const database = await getDatabase();
+// ── Export / Import ────────────────────────────────────────────────
 
-  const skills = database.exec('SELECT * FROM skills ORDER BY updated_at DESC');
-  const versions = database.exec('SELECT * FROM skill_versions');
-  const tags = database.exec('SELECT * FROM tags');
-  const skillTags = database.exec('SELECT * FROM skill_tags');
-  const annotations = database.exec('SELECT * FROM version_annotations');
-  const chatExamples = database.exec('SELECT * FROM chat_examples');
-  const skillUsage = database.exec('SELECT * FROM skill_usage');
-  const skillFiles = database.exec('SELECT * FROM skill_files ORDER BY file_type, filename');
+export async function exportDatabaseAsJson(): Promise<string> {
+  const db = await getDatabase();
+
+  const skills = db.exec('SELECT * FROM skills ORDER BY updated_at DESC');
+  const versions = db.exec('SELECT * FROM skill_versions');
+  const tags = db.exec('SELECT * FROM tags');
+  const skillTags = db.exec('SELECT * FROM skill_tags');
+  const annotations = db.exec('SELECT * FROM version_annotations');
+  const chatExamples = db.exec('SELECT * FROM chat_examples');
+  const skillUsage = db.exec('SELECT * FROM skill_usage');
+  const skillFiles = db.exec('SELECT * FROM skill_files ORDER BY file_type, filename');
 
   return JSON.stringify({
     version: 1,
@@ -271,7 +274,7 @@ function parseMarkdownFrontmatter(markdown: string): MarkdownSkill | null {
 }
 
 export async function importMarkdownSkills(markdownFiles: Array<{ name: string; content: string }>): Promise<number> {
-  const database = await getDatabase();
+  const db = await getDatabase();
   let imported = 0;
 
   for (const file of markdownFiles) {
@@ -282,28 +285,28 @@ export async function importMarkdownSkills(markdownFiles: Array<{ name: string; 
     const versionId = generateId();
     const now = new Date().toISOString();
 
-    database.run(
+    db.run(
       'INSERT INTO skills (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
       [skillId, parsed.title, parsed.created_at || now, parsed.updated_at || now]
     );
 
-    database.run(
+    db.run(
       'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [versionId, skillId, parsed.content, 1, 1, parsed.created_at || now]
     );
 
     for (const tagName of parsed.tags) {
-      const existingTag = database.exec('SELECT id FROM tags WHERE name = ?', [tagName]);
+      const existingTag = db.exec('SELECT id FROM tags WHERE name = ?', [tagName]);
       let tagId: string;
 
       if (existingTag[0]?.values[0]) {
         tagId = existingTag[0].values[0][0] as string;
       } else {
         tagId = generateId();
-        database.run('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)', [tagId, tagName, now]);
+        db.run('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)', [tagId, tagName, now]);
       }
 
-      database.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [
+      db.run('INSERT OR IGNORE INTO skill_tags (id, skill_id, tag_id) VALUES (?, ?, ?)', [
         generateId(),
         skillId,
         tagId,
@@ -313,6 +316,6 @@ export async function importMarkdownSkills(markdownFiles: Array<{ name: string; 
     imported++;
   }
 
-  await saveToIndexedDB();
+  await saveToIndexedDB(db);
   return imported;
 }
