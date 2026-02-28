@@ -155,7 +155,21 @@ function createTables(): void {
     )
   `);
 
+  // Ensure columns exist on tables that may have been created by older code
+  ensureColumn('skills', 'description', "TEXT DEFAULT ''");
+  ensureColumn('skills', 'license', "TEXT DEFAULT ''");
+  ensureColumn('tags', 'color', `TEXT DEFAULT '${DEFAULT_TAG_COLOR}'`);
+
   saveToIndexedDB();
+}
+
+function ensureColumn(table: string, column: string, definition: string): void {
+  if (!db) return;
+  try {
+    db.exec(`SELECT ${column} FROM ${table} LIMIT 0`);
+  } catch {
+    db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 export async function getDatabase(): Promise<Database> {
