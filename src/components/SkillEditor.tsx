@@ -129,8 +129,14 @@ export const SkillEditor = forwardRef<SkillEditorRef, SkillEditorProps>(function
   }));
 
   const handleCreateNewSkill = async () => {
-    if (!title.trim() || !editingContent.trim()) return;
-    await createSkill({ title, description, license, content: editingContent, tagIds: selectedTags });
+    const trimmedTitle = title.trim();
+    const trimmedContent = editingContent.trim();
+    if (!trimmedTitle || !trimmedContent) {
+      toast.error('Name and content are required');
+      return;
+    }
+    console.log('[SkillEditor] Creating skill with title:', JSON.stringify(trimmedTitle));
+    await createSkill({ title: trimmedTitle, description, license, content: trimmedContent, tagIds: selectedTags });
     onSave();
   };
 
