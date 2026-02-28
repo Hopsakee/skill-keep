@@ -95,9 +95,10 @@ export function useSkills() {
       const versionId = generateId();
       const now = new Date().toISOString();
 
+      console.log('[useLocalSkills] INSERT title:', JSON.stringify(trimmedTitle), 'id:', skillId);
       db.run('INSERT INTO skills (id, title, description, license, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [
         skillId,
-        trimmedTitle,
+        String(trimmedTitle),
         description || '',
         license || '',
         now,
