@@ -52,8 +52,9 @@ export async function initDatabase(): Promise<Database> {
     let isCompatible = false;
     try {
       const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
-      isCompatible = !!(versionCheck[0]?.values?.length);
-      console.log('[database] Schema version check:', versionCheck[0]?.values?.[0]?.[0]);
+      const version = versionCheck[0]?.values?.[0]?.[0];
+      isCompatible = version === '3';
+      console.log('[database] Schema version check:', version, 'compatible:', isCompatible);
     } catch (e) {
       console.log('[database] Schema version check failed:', e);
     }
@@ -176,7 +177,7 @@ function createTables(): void {
   `);
 
   // Mark schema version so future loads know this is a compatible database
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2')");
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '3')");
 
   saveToIndexedDB();
 }
