@@ -47,8 +47,14 @@ export async function initDatabase(): Promise<Database> {
     db = new SQL.Database(savedData);
     
     // Check if this is a compatible schema (v2 has the schema_version setting)
-    const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
-    if (!versionCheck[0]?.values?.length) {
+    let isCompatible = false;
+    try {
+      const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
+      isCompatible = !!(versionCheck[0]?.values?.length);
+    } catch {
+      // settings table doesn't exist → incompatible
+    }
+    if (!isCompatible) {
       // Incompatible or legacy database — drop everything and start fresh
       console.log('[database] Incompatible schema detected, recreating database');
       db.close();
