@@ -27,6 +27,7 @@ export function useSkills() {
       const db = await getDatabase();
       
       const skillsResult = db.exec('SELECT id, title, description, license, created_at, updated_at FROM skills ORDER BY updated_at DESC');
+      console.log('[skillsQuery] skills count:', skillsResult[0]?.values?.length ?? 0);
       const versionsResult = db.exec('SELECT id, skill_id, content, version_number, is_active, created_at FROM skill_versions WHERE is_active = 1');
       const tagsResult = db.exec('SELECT id, name, color FROM tags');
       const skillTagsResult = db.exec('SELECT skill_id, tag_id FROM skill_tags');
@@ -106,6 +107,10 @@ export function useSkills() {
         now,
         now,
       ]);
+
+      // Verify the insert worked
+      const verify = db.exec('SELECT id, title FROM skills WHERE id = ?', [skillId]);
+      console.log('[createSkill] verify after insert:', JSON.stringify(verify));
 
       db.run(
         'INSERT INTO skill_versions (id, skill_id, content, version_number, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?)',
