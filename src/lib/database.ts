@@ -45,11 +45,23 @@ export async function initDatabase(): Promise<Database> {
 
   if (savedData) {
     db = new SQL.Database(savedData);
+    
+    // Check if this is a compatible schema (v2 has the schema_version setting)
+    const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
+    if (!versionCheck[0]?.values?.length) {
+      // Incompatible or legacy database — drop everything and start fresh
+      console.log('[database] Incompatible schema detected, recreating database');
+      db.close();
+      db = new SQL.Database();
+      // Clear the old data from IndexedDB
+      const idb = await getIDB();
+      await idb.delete(STORE_NAME, DB_KEY);
+    }
   } else {
     db = new SQL.Database();
   }
 
-  // Always ensure all tables exist (IF NOT EXISTS is safe)
+  // Ensure all tables exist and mark schema version
   createTables();
 
   return db;
@@ -155,22 +167,12 @@ function createTables(): void {
     )
   `);
 
-  // Ensure columns exist on tables that may have been created by older code
-  ensureColumn('skills', 'description', "TEXT DEFAULT ''");
-  ensureColumn('skills', 'license', "TEXT DEFAULT ''");
-  ensureColumn('tags', 'color', `TEXT DEFAULT '${DEFAULT_TAG_COLOR}'`);
+  // Mark schema version so future loads know this is a compatible database
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2')");
 
   saveToIndexedDB();
 }
 
-function ensureColumn(table: string, column: string, definition: string): void {
-  if (!db) return;
-  try {
-    db.exec(`SELECT ${column} FROM ${table} LIMIT 0`);
-  } catch {
-    db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
-}
 
 export async function getDatabase(): Promise<Database> {
   if (!db) {
