@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "Prompt Vault",
-        short_name: "Prompts",
-        description: "Lokale app voor het beheren van prompts met versiebeheer",
+        name: "Skill Keep",
+        short_name: "Skills",
+        description: "Local-first app for managing AI agent skills with versioning",
         theme_color: "#0f0f11",
         background_color: "#0f0f11",
         display: "standalone",
