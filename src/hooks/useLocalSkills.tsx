@@ -87,6 +87,8 @@ export function useSkills() {
 
   const createSkillMutation = useMutation({
     mutationFn: async ({ title, description, license, content, tagIds }: { title: string; description?: string; license?: string; content: string; tagIds?: string[] }) => {
+      console.log('[createSkill] called with title:', JSON.stringify(title), 'content length:', content?.length);
+      console.trace('[createSkill] stack trace');
       const trimmedTitle = (title || '').trim();
       if (!trimmedTitle) throw new Error('Skill name is required');
       

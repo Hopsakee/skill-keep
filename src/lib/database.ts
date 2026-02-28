@@ -53,7 +53,7 @@ export async function initDatabase(): Promise<Database> {
     try {
       const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
       const version = versionCheck[0]?.values?.[0]?.[0];
-      isCompatible = version === '3';
+      isCompatible = version === '4';
       console.log('[database] Schema version check:', version, 'compatible:', isCompatible);
     } catch (e) {
       console.log('[database] Schema version check failed:', e);
@@ -82,7 +82,7 @@ function createTables(): void {
   db.run(`
     CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
+      title TEXT DEFAULT '',
       description TEXT DEFAULT '',
       license TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -177,7 +177,7 @@ function createTables(): void {
   `);
 
   // Mark schema version so future loads know this is a compatible database
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '3')");
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '4')");
 
   saveToIndexedDB();
 }
