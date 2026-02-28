@@ -135,7 +135,7 @@ export const SkillEditor = forwardRef<SkillEditorRef, SkillEditorProps>(function
       toast.error('Name and content are required');
       return;
     }
-    console.log('[SkillEditor] Creating skill with title:', JSON.stringify(trimmedTitle));
+    
     await createSkill({ title: trimmedTitle, description, license, content: trimmedContent, tagIds: selectedTags });
     onSave();
   };
