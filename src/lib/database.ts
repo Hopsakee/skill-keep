@@ -75,8 +75,10 @@ export async function initDatabase(): Promise<Database> {
     db = new SQL.Database(savedData);
   } else {
     db = new SQL.Database();
-    createTables();
   }
+
+  // Always ensure all tables exist (IF NOT EXISTS is safe for existing DBs)
+  createTables();
 
   return db;
 }
