@@ -32,6 +32,7 @@ async function loadFromIndexedDB(): Promise<Uint8Array | null> {
 }
 
 export async function initDatabase(): Promise<Database> {
+  console.log('[database] initDatabase called, db exists:', !!db);
   if (db) return db;
 
   const wasmUrl = (file: string) =>
@@ -42,6 +43,7 @@ export async function initDatabase(): Promise<Database> {
   const SQL = await initSqlJs({ locateFile: wasmUrl });
 
   const savedData = await loadFromIndexedDB();
+  console.log('[database] savedData from IndexedDB:', savedData ? `${savedData.length} bytes` : 'null');
 
   if (savedData) {
     db = new SQL.Database(savedData);
@@ -51,19 +53,19 @@ export async function initDatabase(): Promise<Database> {
     try {
       const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
       isCompatible = !!(versionCheck[0]?.values?.length);
-    } catch {
-      // settings table doesn't exist → incompatible
+      console.log('[database] Schema version check:', versionCheck[0]?.values?.[0]?.[0]);
+    } catch (e) {
+      console.log('[database] Schema version check failed:', e);
     }
     if (!isCompatible) {
-      // Incompatible or legacy database — drop everything and start fresh
       console.log('[database] Incompatible schema detected, recreating database');
       db.close();
       db = new SQL.Database();
-      // Clear the old data from IndexedDB
       const idb = await getIDB();
       await idb.delete(STORE_NAME, DB_KEY);
     }
   } else {
+    console.log('[database] No saved data, creating fresh database');
     db = new SQL.Database();
   }
 
@@ -75,7 +77,7 @@ export async function initDatabase(): Promise<Database> {
 
 function createTables(): void {
   if (!db) return;
-
+  console.log('[database] Creating/verifying tables');
   db.run(`
     CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
