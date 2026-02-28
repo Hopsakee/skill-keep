@@ -53,7 +53,7 @@ export async function initDatabase(): Promise<Database> {
     try {
       const versionCheck = db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
       const version = versionCheck[0]?.values?.[0]?.[0];
-      isCompatible = version === '4';
+      isCompatible = version === '5';
       console.log('[database] Schema version check:', version, 'compatible:', isCompatible);
     } catch (e) {
       console.log('[database] Schema version check failed:', e);
@@ -85,19 +85,19 @@ function createTables(): void {
       title TEXT DEFAULT '',
       description TEXT DEFAULT '',
       license TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
     )
   `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS skill_versions (
       id TEXT PRIMARY KEY,
-      skill_id TEXT NOT NULL,
-      content TEXT NOT NULL,
-      version_number INTEGER NOT NULL DEFAULT 1,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      skill_id TEXT DEFAULT '',
+      content TEXT DEFAULT '',
+      version_number INTEGER DEFAULT 1,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
     )
   `);
@@ -177,7 +177,7 @@ function createTables(): void {
   `);
 
   // Mark schema version so future loads know this is a compatible database
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '4')");
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '5')");
 
   saveToIndexedDB();
 }
